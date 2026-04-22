@@ -1,0 +1,260 @@
+import random, pygame, sys
+from enum import Enum
+
+TILE_SIZE = 64
+SCREEN_HEIGHT = TILE_SIZE * 12
+SCREEN_WIDTH = TILE_SIZE * 15
+HERO_SPEED = 2 * 4
+
+
+def load_images(path, limit):
+    return list(
+        pygame.image.load(f"treasure_hunt/images/{path}_{i:02d}.png")
+        for i in range(0, limit)
+    )
+
+
+class Path:
+    def __init__(self, x, y, image):
+        self.x = x
+        self.y = y
+        self.image = image
+
+    def get_rect(self):
+        return self.image.get_rect(topleft=(self.x, self.y))
+
+    def draw(self, screen: pygame.Surface):
+        screen.blit(self.image, (self.x, self.y))
+
+
+class Wall:
+    def __init__(self, x, y, image):
+        self.x = x
+        self.y = y
+        self.image = image
+
+    def get_rect(self):
+        return self.image.get_rect(topleft=(self.x, self.y))
+
+    def draw(self, screen: pygame.Surface):
+        screen.blit(self.image, (self.x, self.y))
+
+
+class Coin:
+    def __init__(self, x, y, images):
+        self.x = x
+        self.y = y
+        self.start_time = pygame.time.get_ticks()
+        self.image_number = 0
+        self.images = images
+        self.was_collected = False
+        self.has_disappeared = False
+
+    def update(self):
+        if not self.was_collected:
+            if self.start_time + 100 < pygame.time.get_ticks():
+                self.image_number += 1
+                self.start_time = pygame.time.get_ticks()
+                if self.image_number == 8:
+                    self.image_number = 0
+        else:
+            if self.start_time + 100 < pygame.time.get_ticks():
+                self.image_number += 1
+                self.start_time = pygame.time.get_ticks()
+                if self.image_number == 14:
+                    self.image_number = 0
+                    self.has_disappeared = True
+
+    def collected(self):
+        if not self.was_collected:
+            self.start_time = pygame.time.get_ticks()
+            self.image_number = 8
+        self.was_collected = True
+
+    def get_rect(self):
+        return self.images[self.image_number].get_rect(topleft=(self.x, self.y))
+
+    def draw(self, screen: pygame.Surface):
+        if not self.has_disappeared:
+            screen.blit(self.images[self.image_number], (self.x, self.y))
+
+
+class Maze:
+    def __init__(self) -> None:
+        self.coin_images = load_images("coin/coin", 8) + load_images(
+            "coin/collected_coin", 6
+        )
+
+        self.path_image = pygame.image.load("treasure_hunt/images/path.png")
+        self.wall_image = pygame.image.load("treasure_hunt/images/wall.png")
+        self.paths = []
+        self.walls = []
+
+        for x in range(1, SCREEN_WIDTH // TILE_SIZE - 1):
+            for y in range(1, SCREEN_HEIGHT // TILE_SIZE - 1):
+                if random.randint(0, 4) == 4:
+                    self.walls.append(
+                        Wall(x * TILE_SIZE, y * TILE_SIZE, self.wall_image)
+                    )
+                else:
+                    self.paths.append(
+                        Path(x * TILE_SIZE, y * TILE_SIZE, self.path_image)
+                    )
+        for x in range(0, SCREEN_WIDTH // TILE_SIZE):
+            self.walls.append(Wall(x * TILE_SIZE, 0, self.wall_image))
+            self.walls.append(
+                Wall(x * TILE_SIZE, SCREEN_HEIGHT - TILE_SIZE, self.wall_image)
+            )
+        for y in range(1, SCREEN_HEIGHT // TILE_SIZE - 1):
+            self.walls.append(Wall(0, y * TILE_SIZE, self.wall_image))
+            self.walls.append(
+                Wall(SCREEN_WIDTH - TILE_SIZE, y * TILE_SIZE, self.wall_image)
+            )
+        ps = random.sample(self.paths, random.choice(range(1, 11)))
+        self.coins = list(Coin(p.x, p.y, self.coin_images) for p in ps)
+
+    def update(self):
+        for c in self.coins:
+            c.update()
+            if c.has_disappeared:
+                self.coins.remove(c)
+        if not self.coins:
+            ps = random.sample(self.paths, random.choice(range(1, 11)))
+            self.coins = list(Coin(p.x, p.y, self.coin_images) for p in ps)
+
+    def check_touched_coin(self, hero):
+        for c in self.coins:
+            if c.get_rect().colliderect(hero.get_rect()):
+                if not c.was_collected:
+                    hero.change_points()
+                c.collected()
+
+    def check_touched_wall(self, hero):
+        for w in self.walls:
+            if w.get_rect().colliderect(hero.get_rect()):
+                hero.go_to_prev_position()
+
+    def get_random_path(self):
+        return random.choice(self.paths)
+
+    def draw(self, screen):
+        for w in self.walls:
+            w.draw(screen)
+        for p in self.paths:
+            p.draw(screen)
+        for c in self.coins:
+            c.draw(screen)
+
+
+class Hero:
+    def __init__(self, x, y):
+
+        self.images = {
+            pygame.K_RIGHT: load_images("assassin/right", 20),
+            pygame.K_LEFT: load_images("assassin/left", 20),
+            pygame.K_UP: load_images("assassin/back", 20),
+            pygame.K_DOWN: load_images("assassin/front", 20),
+        }
+        self.points = 0
+        self.image = self.images[pygame.K_DOWN][0]
+        self.image_number = 0
+        self.x = x
+        self.y = y
+        self.movement_direction = pygame.K_DOWN
+
+    def go_to_prev_position(self):
+        self.x = self.prev_x
+        self.y = self.prev_y
+        self.image_number = 0
+        self.movement_direction = self.prev_movement_direction
+        self.image = self.images[self.movement_direction][0]
+
+    def update(self, keys):
+        self.prev_x = self.x
+        self.prev_y = self.y
+        self.prev_movement_direction = self.movement_direction
+        was_moved = False
+
+        if keys[pygame.K_LEFT]:
+            self.image = self.images[pygame.K_LEFT][self.image_number]
+            self.image_number += 1
+            was_moved = True
+            self.x -= HERO_SPEED
+            self.movement_direction = pygame.K_LEFT
+        elif keys[pygame.K_RIGHT]:
+            self.image = self.images[pygame.K_RIGHT][self.image_number]
+            self.image_number += 1
+            was_moved = True
+            self.x += HERO_SPEED
+            self.movement_direction = pygame.K_RIGHT
+        elif keys[pygame.K_UP]:
+            self.image = self.images[pygame.K_UP][self.image_number]
+            self.image_number += 1
+            was_moved = True
+            self.y -= HERO_SPEED
+            self.movement_direction = pygame.K_UP
+        elif keys[pygame.K_DOWN]:
+            self.image = self.images[pygame.K_DOWN][self.image_number]
+            self.image_number += 1
+            was_moved = True
+            self.y += HERO_SPEED
+            self.movement_direction = pygame.K_DOWN
+        if not was_moved:
+            self.image_number = 0
+            self.image = self.images[self.movement_direction][0]
+        if self.image_number == 20:
+            self.image_number = 0
+
+    def change_points(self):
+        self.points += 1
+
+    def get_rect(self):
+        collision_rect = self.image.get_rect(center=(self.x, self.y))
+        collision_rect.x += 10
+        collision_rect.width -= 20
+
+        return collision_rect
+
+    def draw(self, screen: pygame.Surface, font):
+        collision_rect = self.image.get_rect(center=(self.x, self.y))
+        collision_rect.x += 10
+        collision_rect.width -= 20
+        # pygame.draw.rect(screen, (255, 50, 50), collision_rect)
+        rect = self.image.get_rect(center=(self.x, self.y))
+        screen.blit(self.image, rect)
+        points_img = font.render(f"Coins: {hero.points}", True, (255, 255, 255))
+        screen.blit(points_img, (0, 0))
+
+
+pygame.init()
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+
+pygame.display.set_caption("Treasure hunt")
+
+font = pygame.font.Font(None, 25)
+
+
+maze = Maze()
+r = maze.get_random_path().get_rect()
+hero = Hero(r.centerx, r.centery)
+
+
+while True:
+
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+
+    screen.fill((0, 0, 0))
+
+    hero.update(pygame.key.get_pressed())
+    maze.update()
+
+    maze.check_touched_coin(hero)
+    maze.check_touched_wall(hero)
+
+    maze.draw(screen)
+    hero.draw(screen, font)
+
+    pygame.display.flip()
