@@ -146,6 +146,31 @@ class Maze:
             c.draw(screen)
 
 
+class Star:
+    def __init__(self, x, y, image, direction):
+        self.x = x
+        self.y = y
+        self.image = image
+        self.direction = direction
+        self.angle = 0
+
+    def update(self):
+        self.angle += 10
+        if self.direction == pygame.K_RIGHT:
+            self.x += HERO_SPEED * 1.1
+        if self.direction == pygame.K_LEFT:
+            self.x -= HERO_SPEED * 1.1
+        if self.direction == pygame.K_UP:
+            self.y -= HERO_SPEED * 1.1
+        if self.direction == pygame.K_DOWN:
+            self.y += HERO_SPEED * 1.1
+
+    def draw(self, screen: pygame.Surface):
+        rotated_img = pygame.transform.rotate(self.image, self.angle)
+        rect = rotated_img.get_rect(center=(self.x, self.y))
+        screen.blit(rotated_img, rect)
+
+
 class Hero:
     def __init__(self, x, y):
 
@@ -161,6 +186,9 @@ class Hero:
         self.x = x
         self.y = y
         self.movement_direction = pygame.K_DOWN
+        self.stars: list[Star] = []
+        self.star_image = pygame.image.load("treasure_hunt/images/star.png")
+        self.stars_spend = 0
 
     def go_to_prev_position(self):
         self.x = self.prev_x
@@ -204,6 +232,19 @@ class Hero:
             self.image = self.images[self.movement_direction][0]
         if self.image_number == 20:
             self.image_number = 0
+        for s in self.stars:
+            s.update()
+
+    def process_event(self, event):
+        if (
+            event.type == pygame.KEYDOWN
+            and event.key == pygame.K_SPACE
+            and (self.points // 5 - self.stars_spend) > 0
+        ):
+            self.stars.append(
+                Star(self.x, self.y, self.star_image, self.movement_direction)
+            )
+            self.stars_spend += 1
 
     def change_points(self):
         self.points += 1
@@ -222,8 +263,14 @@ class Hero:
         # pygame.draw.rect(screen, (255, 50, 50), collision_rect)
         rect = self.image.get_rect(center=(self.x, self.y))
         screen.blit(self.image, rect)
-        points_img = font.render(f"Coins: {hero.points}", True, (255, 255, 255))
+        points_img = font.render(f"Coins: {self.points}", True, (255, 255, 255))
         screen.blit(points_img, (0, 0))
+        stars_img = font.render(
+            f"Stars: {self.points//5-self.stars_spend}", True, (255, 255, 255)
+        )
+        screen.blit(stars_img, (0, 25))
+        for s in self.stars:
+            s.draw(screen)
 
 
 pygame.init()
@@ -245,6 +292,7 @@ while True:
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
+        hero.process_event(event)
 
     screen.fill((0, 0, 0))
 
