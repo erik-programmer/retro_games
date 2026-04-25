@@ -28,7 +28,7 @@ class Path:
 
 
 class Wall:
-    def __init__(self, x, y, images, is_border_wall):
+    def __init__(self, x, y, images, is_border_wall, path_image):
         self.x = x
         self.y = y
         self.images = images
@@ -36,6 +36,7 @@ class Wall:
         self.hit_time = 0
         self.is_destroyed = False
         self.is_border_wall = is_border_wall
+        self.path_image = path_image
 
     def update(self):
         if self.hit_time > 0:
@@ -56,7 +57,8 @@ class Wall:
         return self.images[self.image_number].get_rect(topleft=(self.x, self.y))
 
     def draw(self, screen: pygame.Surface):
-        # pygame.draw.rect(screen, (255, 50, 50), self.get_rect())
+        if self.hit_time > 0:
+            screen.blit(self.path_image, (self.x, self.y))
         screen.blit(self.images[self.image_number], (self.x, self.y))
 
 
@@ -114,21 +116,43 @@ class Maze:
             for y in range(1, SCREEN_HEIGHT // TILE_SIZE - 1):
                 if random.randint(0, 4) == 4:
                     self.walls.append(
-                        Wall(x * TILE_SIZE, y * TILE_SIZE, self.wall_images, False)
+                        Wall(
+                            x * TILE_SIZE,
+                            y * TILE_SIZE,
+                            self.wall_images,
+                            False,
+                            self.path_image,
+                        )
                     )
                 else:
                     self.paths.append(
                         Path(x * TILE_SIZE, y * TILE_SIZE, self.path_image)
                     )
         for x in range(0, SCREEN_WIDTH // TILE_SIZE):
-            self.walls.append(Wall(x * TILE_SIZE, 0, self.wall_images, True))
             self.walls.append(
-                Wall(x * TILE_SIZE, SCREEN_HEIGHT - TILE_SIZE, self.wall_images, True)
+                Wall(x * TILE_SIZE, 0, self.wall_images, True, self.path_image)
+            )
+            self.walls.append(
+                Wall(
+                    x * TILE_SIZE,
+                    SCREEN_HEIGHT - TILE_SIZE,
+                    self.wall_images,
+                    True,
+                    self.path_image,
+                )
             )
         for y in range(1, SCREEN_HEIGHT // TILE_SIZE - 1):
-            self.walls.append(Wall(0, y * TILE_SIZE, self.wall_images, True))
             self.walls.append(
-                Wall(SCREEN_WIDTH - TILE_SIZE, y * TILE_SIZE, self.wall_images, True)
+                Wall(0, y * TILE_SIZE, self.wall_images, True, self.path_image)
+            )
+            self.walls.append(
+                Wall(
+                    SCREEN_WIDTH - TILE_SIZE,
+                    y * TILE_SIZE,
+                    self.wall_images,
+                    True,
+                    self.path_image,
+                )
             )
         ps = random.sample(self.paths, random.choice(range(1, 11)))
         self.coins = list(Coin(p.x, p.y, self.coin_images) for p in ps)
