@@ -28,16 +28,36 @@ class Path:
 
 
 class Wall:
-    def __init__(self, x, y, image):
+    def __init__(self, x, y, images, is_border_wall):
         self.x = x
         self.y = y
-        self.image = image
+        self.images = images
+        self.image_number = 0
+        self.hit_time = 0
+        self.is_destroyed = False
+        self.is_border_wall = is_border_wall
+
+    def update(self):
+        if self.hit_time > 0:
+            if self.hit_time + 100 < pygame.time.get_ticks():
+                self.image_number += 1
+                self.hit_time = pygame.time.get_ticks()
+            if self.image_number == 10:
+                self.image_number = 0
+                self.hit_time = 0
+                self.is_destroyed = True
+
+    def hit(self):
+        if not self.is_border_wall:
+            self.hit_time = pygame.time.get_ticks()
+            self.image_number += 1
 
     def get_rect(self):
-        return self.image.get_rect(topleft=(self.x, self.y))
+        return self.images[self.image_number].get_rect(topleft=(self.x, self.y))
 
     def draw(self, screen: pygame.Surface):
-        screen.blit(self.image, (self.x, self.y))
+        # pygame.draw.rect(screen, (255, 50, 50), self.get_rect())
+        screen.blit(self.images[self.image_number], (self.x, self.y))
 
 
 class Coin:
@@ -86,29 +106,29 @@ class Maze:
         )
 
         self.path_image = pygame.image.load("treasure_hunt/images/path.png")
-        self.wall_image = pygame.image.load("treasure_hunt/images/wall.png")
-        self.paths = []
-        self.walls = []
+        self.wall_images = load_images("wall/wall_impact", 10)
+        self.paths: list[Path] = []
+        self.walls: list[Wall] = []
 
         for x in range(1, SCREEN_WIDTH // TILE_SIZE - 1):
             for y in range(1, SCREEN_HEIGHT // TILE_SIZE - 1):
                 if random.randint(0, 4) == 4:
                     self.walls.append(
-                        Wall(x * TILE_SIZE, y * TILE_SIZE, self.wall_image)
+                        Wall(x * TILE_SIZE, y * TILE_SIZE, self.wall_images, False)
                     )
                 else:
                     self.paths.append(
                         Path(x * TILE_SIZE, y * TILE_SIZE, self.path_image)
                     )
         for x in range(0, SCREEN_WIDTH // TILE_SIZE):
-            self.walls.append(Wall(x * TILE_SIZE, 0, self.wall_image))
+            self.walls.append(Wall(x * TILE_SIZE, 0, self.wall_images, True))
             self.walls.append(
-                Wall(x * TILE_SIZE, SCREEN_HEIGHT - TILE_SIZE, self.wall_image)
+                Wall(x * TILE_SIZE, SCREEN_HEIGHT - TILE_SIZE, self.wall_images, True)
             )
         for y in range(1, SCREEN_HEIGHT // TILE_SIZE - 1):
-            self.walls.append(Wall(0, y * TILE_SIZE, self.wall_image))
+            self.walls.append(Wall(0, y * TILE_SIZE, self.wall_images, True))
             self.walls.append(
-                Wall(SCREEN_WIDTH - TILE_SIZE, y * TILE_SIZE, self.wall_image)
+                Wall(SCREEN_WIDTH - TILE_SIZE, y * TILE_SIZE, self.wall_images, True)
             )
         ps = random.sample(self.paths, random.choice(range(1, 11)))
         self.coins = list(Coin(p.x, p.y, self.coin_images) for p in ps)
@@ -121,6 +141,11 @@ class Maze:
         if not self.coins:
             ps = random.sample(self.paths, random.choice(range(1, 11)))
             self.coins = list(Coin(p.x, p.y, self.coin_images) for p in ps)
+        for w in self.walls:
+            w.update()
+            if w.is_destroyed:
+                self.walls.remove(w)
+                self.paths.append(Path(w.x, w.y, self.path_image))
 
     def check_touched_coin(self, hero):
         for c in self.coins:
@@ -131,17 +156,16 @@ class Maze:
 
     def check_touched_wall(self, hero):
         for w in self.walls:
-            if w.get_rect().colliderect(hero.get_rect()):
-                hero.go_to_prev_position()
+            hero.check_touched_wall(w)
 
     def get_random_path(self):
         return random.choice(self.paths)
 
     def draw(self, screen):
-        for w in self.walls:
-            w.draw(screen)
         for p in self.paths:
             p.draw(screen)
+        for w in self.walls:
+            w.draw(screen)
         for c in self.coins:
             c.draw(screen)
 
@@ -165,9 +189,15 @@ class Star:
         if self.direction == pygame.K_DOWN:
             self.y += HERO_SPEED * 1.1
 
+    def get_rect(self):
+        return pygame.transform.rotate(self.image, self.angle).get_rect(
+            center=(self.x, self.y)
+        )
+
     def draw(self, screen: pygame.Surface):
         rotated_img = pygame.transform.rotate(self.image, self.angle)
         rect = rotated_img.get_rect(center=(self.x, self.y))
+        #  pygame.draw.rect(screen, (255, 50, 50), self.get_rect())
         screen.blit(rotated_img, rect)
 
 
@@ -196,6 +226,14 @@ class Hero:
         self.image_number = 0
         self.movement_direction = self.prev_movement_direction
         self.image = self.images[self.movement_direction][0]
+
+    def check_touched_wall(self, wall: Wall):
+        if wall.get_rect().colliderect(self.get_rect()):
+            self.go_to_prev_position()
+        for s in self.stars:
+            if wall.get_rect().colliderect(s.get_rect()):
+                self.stars.remove(s)
+                wall.hit()
 
     def update(self, keys):
         self.prev_x = self.x
