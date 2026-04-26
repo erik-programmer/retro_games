@@ -5,6 +5,7 @@ TILE_SIZE = 64
 SCREEN_HEIGHT = TILE_SIZE * 12
 SCREEN_WIDTH = TILE_SIZE * 15
 HERO_SPEED = 2 * 4
+ENEMY_SPEED = HERO_SPEED * 0.5
 
 
 def load_images(path, limit):
@@ -101,6 +102,71 @@ class Coin:
             screen.blit(self.images[self.image_number], (self.x, self.y))
 
 
+class Enemy:
+    def __init__(self, x, y):
+
+        self.images = {
+            pygame.K_RIGHT: load_images("goblin/right", 20),
+            pygame.K_LEFT: load_images("goblin/left", 20),
+            pygame.K_UP: load_images("goblin/back", 20),
+            pygame.K_DOWN: load_images("goblin/front", 20),
+        }
+
+        self.image = self.images[pygame.K_DOWN][0]
+        self.image_number = 0
+        self.x = x
+        self.y = y
+        self.movement_direction = pygame.K_LEFT
+
+    def update(self):
+
+        if self.movement_direction == pygame.K_LEFT:
+            self.image = self.images[pygame.K_LEFT][self.image_number]
+            self.image_number += 1
+            self.x -= ENEMY_SPEED
+        elif self.movement_direction == pygame.K_RIGHT:
+            self.image = self.images[pygame.K_RIGHT][self.image_number]
+            self.image_number += 1
+            self.x += ENEMY_SPEED
+        elif self.movement_direction == pygame.K_UP:
+            self.image = self.images[pygame.K_UP][self.image_number]
+            self.image_number += 1
+            self.y -= ENEMY_SPEED
+        elif self.movement_direction == pygame.K_DOWN:
+            self.image = self.images[pygame.K_DOWN][self.image_number]
+            self.image_number += 1
+            self.y += ENEMY_SPEED
+
+        if self.image_number == 20:
+            self.image_number = 0
+
+    def check_touched_wall(self, wall: Wall):
+        if wall.get_rect().colliderect(self.get_rect()):
+            if self.movement_direction == pygame.K_LEFT:
+                self.movement_direction = pygame.K_RIGHT
+            elif self.movement_direction == pygame.K_RIGHT:
+                self.movement_direction = pygame.K_LEFT
+            elif self.movement_direction == pygame.K_UP:
+                self.movement_direction = pygame.K_DOWN
+            elif self.movement_direction == pygame.K_DOWN:
+                self.movement_direction = pygame.K_UP
+
+    def get_rect(self):
+        collision_rect = self.image.get_rect(center=(self.x, self.y))
+        collision_rect.x += 10
+        collision_rect.width -= 20
+
+        return collision_rect
+
+    def draw(self, screen: pygame.Surface):
+        collision_rect = self.image.get_rect(center=(self.x, self.y))
+        collision_rect.x += 10
+        collision_rect.width -= 20
+        # pygame.draw.rect(screen, (255, 50, 50), collision_rect)
+        rect = self.image.get_rect(center=(self.x, self.y))
+        screen.blit(self.image, rect)
+
+
 class Maze:
     def __init__(self) -> None:
         self.coin_images = load_images("coin/coin", 8) + load_images(
@@ -111,6 +177,7 @@ class Maze:
         self.wall_images = load_images("wall/wall_impact", 10)
         self.paths: list[Path] = []
         self.walls: list[Wall] = []
+        self.enemies: list[Enemy] = []
 
         for x in range(1, SCREEN_WIDTH // TILE_SIZE - 1):
             for y in range(1, SCREEN_HEIGHT // TILE_SIZE - 1):
@@ -156,6 +223,8 @@ class Maze:
             )
         ps = random.sample(self.paths, random.choice(range(1, 11)))
         self.coins = list(Coin(p.x, p.y, self.coin_images) for p in ps)
+        ep = self.get_random_path().get_rect()
+        self.enemies.append(Enemy(ep.centerx, ep.centery))
 
     def update(self):
         for c in self.coins:
@@ -170,6 +239,8 @@ class Maze:
             if w.is_destroyed:
                 self.walls.remove(w)
                 self.paths.append(Path(w.x, w.y, self.path_image))
+        for e in self.enemies:
+            e.update()
 
     def check_touched_coin(self, hero):
         for c in self.coins:
@@ -181,6 +252,8 @@ class Maze:
     def check_touched_wall(self, hero):
         for w in self.walls:
             hero.check_touched_wall(w)
+            for e in self.enemies:
+                e.check_touched_wall(w)
 
     def get_random_path(self):
         return random.choice(self.paths)
@@ -192,6 +265,8 @@ class Maze:
             w.draw(screen)
         for c in self.coins:
             c.draw(screen)
+        for e in self.enemies:
+            e.draw(screen)
 
 
 class Star:
