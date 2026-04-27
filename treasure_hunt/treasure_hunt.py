@@ -255,6 +255,10 @@ class Maze:
             for e in self.enemies:
                 e.check_touched_wall(w)
 
+    def check_touched_enemy(self, hero):
+        for e in self.enemies:
+            hero.check_touched_enemy(e)
+
     def get_random_path(self):
         return random.choice(self.paths)
 
@@ -318,6 +322,8 @@ class Hero:
         self.stars: list[Star] = []
         self.star_image = pygame.image.load("treasure_hunt/images/star.png")
         self.stars_spend = 0
+        self.lives = 3
+        self.blink_counter = -1
 
     def go_to_prev_position(self):
         self.x = self.prev_x
@@ -333,6 +339,15 @@ class Hero:
             if wall.get_rect().colliderect(s.get_rect()):
                 self.stars.remove(s)
                 wall.hit()
+
+    def check_touched_enemy(self, enemy: Enemy):
+        if enemy.get_rect().colliderect(self.get_rect()) and self.blink_counter == -1:
+            self.lives -= 1
+            self.blink_counter = 0
+        for s in self.stars:
+            if enemy.get_rect().colliderect(s.get_rect()):
+                self.stars.remove(s)
+                # enemy.hit()
 
     def update(self, keys):
         self.prev_x = self.x
@@ -371,6 +386,10 @@ class Hero:
             self.image_number = 0
         for s in self.stars:
             s.update()
+        if self.blink_counter > -1:
+            self.blink_counter += 1
+        if self.blink_counter > 20:
+            self.blink_counter = -1
 
     def process_event(self, event):
         if (
@@ -393,19 +412,24 @@ class Hero:
 
         return collision_rect
 
+    def is_alive(self):
+        return self.lives > 0
+
     def draw(self, screen: pygame.Surface, font):
         collision_rect = self.image.get_rect(center=(self.x, self.y))
         collision_rect.x += 10
         collision_rect.width -= 20
-        # pygame.draw.rect(screen, (255, 50, 50), collision_rect)
         rect = self.image.get_rect(center=(self.x, self.y))
-        screen.blit(self.image, rect)
+        if self.blink_counter % 2 == 1 or self.blink_counter == -1:
+            screen.blit(self.image, rect)
         points_img = font.render(f"Coins: {self.points}", True, (255, 255, 255))
         screen.blit(points_img, (0, 0))
         stars_img = font.render(
             f"Stars: {self.points//5-self.stars_spend}", True, (255, 255, 255)
         )
         screen.blit(stars_img, (0, 25))
+        lives_img = font.render(f"Lives: {self.lives}", True, (255, 255, 255))
+        screen.blit(lives_img, (0, 50))
         for s in self.stars:
             s.draw(screen)
 
@@ -429,17 +453,26 @@ while True:
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
-        hero.process_event(event)
+        if hero.is_alive():
+            hero.process_event(event)
 
     screen.fill((0, 0, 0))
 
-    hero.update(pygame.key.get_pressed())
+    if hero.is_alive():
+        hero.update(pygame.key.get_pressed())
     maze.update()
 
-    maze.check_touched_coin(hero)
+    if hero.is_alive():
+        maze.check_touched_coin(hero)
+        maze.check_touched_enemy(hero)
+
     maze.check_touched_wall(hero)
 
     maze.draw(screen)
-    hero.draw(screen, font)
+    if hero.is_alive():
+        hero.draw(screen, font)
+    else:
+        end_img = pygame.font.Font(None, 75).render(f"GAME OVER", True, (255, 50, 100))
+        screen.blit(end_img, (SCREEN_WIDTH / 2 - 135, SCREEN_HEIGHT / 2 - 20))
 
     pygame.display.flip()
