@@ -50,7 +50,7 @@ class Wall:
                 self.is_destroyed = True
 
     def hit(self):
-        if not self.is_border_wall:
+        if not self.is_border_wall and self.hit_time == 0:
             self.hit_time = pygame.time.get_ticks()
             self.image_number += 1
 
@@ -106,39 +106,56 @@ class Enemy:
     def __init__(self, x, y):
 
         self.images = {
-            pygame.K_RIGHT: load_images("goblin/right", 20),
-            pygame.K_LEFT: load_images("goblin/left", 20),
-            pygame.K_UP: load_images("goblin/back", 20),
-            pygame.K_DOWN: load_images("goblin/front", 20),
+            pygame.K_RIGHT: load_images("goblin/right", 20)
+            + load_images("goblin/right_hurt", 5),
+            pygame.K_LEFT: load_images("goblin/left", 20)
+            + load_images("goblin/left_hurt", 5),
+            pygame.K_UP: load_images("goblin/back", 20)
+            + load_images("goblin/back_hurt", 5),
+            pygame.K_DOWN: load_images("goblin/front", 20)
+            + load_images("goblin/front_hurt", 5),
         }
 
         self.image = self.images[pygame.K_DOWN][0]
         self.image_number = 0
         self.x = x
         self.y = y
-        self.movement_direction = pygame.K_LEFT
+        self.movement_direction = random.choice([pygame.K_LEFT, pygame.K_UP])
+        self.hit_time = 0
+        self.is_dead = False
 
     def update(self):
+        if self.hit_time == 0:
+            if self.movement_direction == pygame.K_LEFT:
+                self.image = self.images[pygame.K_LEFT][self.image_number]
+                self.image_number += 1
+                self.x -= ENEMY_SPEED
+            elif self.movement_direction == pygame.K_RIGHT:
+                self.image = self.images[pygame.K_RIGHT][self.image_number]
+                self.image_number += 1
+                self.x += ENEMY_SPEED
+            elif self.movement_direction == pygame.K_UP:
+                self.image = self.images[pygame.K_UP][self.image_number]
+                self.image_number += 1
+                self.y -= ENEMY_SPEED
+            elif self.movement_direction == pygame.K_DOWN:
+                self.image = self.images[pygame.K_DOWN][self.image_number]
+                self.image_number += 1
+                self.y += ENEMY_SPEED
 
-        if self.movement_direction == pygame.K_LEFT:
-            self.image = self.images[pygame.K_LEFT][self.image_number]
-            self.image_number += 1
-            self.x -= ENEMY_SPEED
-        elif self.movement_direction == pygame.K_RIGHT:
-            self.image = self.images[pygame.K_RIGHT][self.image_number]
-            self.image_number += 1
-            self.x += ENEMY_SPEED
-        elif self.movement_direction == pygame.K_UP:
-            self.image = self.images[pygame.K_UP][self.image_number]
-            self.image_number += 1
-            self.y -= ENEMY_SPEED
-        elif self.movement_direction == pygame.K_DOWN:
-            self.image = self.images[pygame.K_DOWN][self.image_number]
-            self.image_number += 1
-            self.y += ENEMY_SPEED
+            if self.image_number == 20:
+                self.image_number = 0
+        else:
+            if self.hit_time + 100 > pygame.time.get_ticks():
+                self.hit_time = pygame.time.get_ticks()
+                self.image_number += 1
+                self.image = self.images[self.movement_direction][self.image_number]
+            if self.image_number > 23:
+                self.is_dead = True
 
-        if self.image_number == 20:
-            self.image_number = 0
+    def hit(self):
+        self.hit_time = pygame.time.get_ticks()
+        self.image_number = 19
 
     def check_touched_wall(self, wall: Wall):
         if wall.get_rect().colliderect(self.get_rect()):
@@ -223,8 +240,10 @@ class Maze:
             )
         ps = random.sample(self.paths, random.choice(range(1, 11)))
         self.coins = list(Coin(p.x, p.y, self.coin_images) for p in ps)
-        ep = self.get_random_path().get_rect()
-        self.enemies.append(Enemy(ep.centerx, ep.centery))
+        ps = random.sample(self.paths, 3)
+        self.enemies = list(
+            Enemy(p.get_rect().centerx, p.get_rect().centery) for p in ps
+        )
 
     def update(self):
         for c in self.coins:
@@ -241,6 +260,11 @@ class Maze:
                 self.paths.append(Path(w.x, w.y, self.path_image))
         for e in self.enemies:
             e.update()
+            if e.is_dead:
+                self.enemies.remove(e)
+
+    def is_completed(self):
+        return not self.enemies
 
     def check_touched_coin(self, hero):
         for c in self.coins:
@@ -325,6 +349,14 @@ class Hero:
         self.lives = 3
         self.blink_counter = -1
 
+    def go_to_position(self, x, y):
+        self.image = self.images[pygame.K_DOWN][0]
+        self.image_number = 0
+        self.x = x
+        self.y = y
+        self.movement_direction = pygame.K_DOWN
+        self.stars: list[Star] = []
+
     def go_to_prev_position(self):
         self.x = self.prev_x
         self.y = self.prev_y
@@ -347,7 +379,7 @@ class Hero:
         for s in self.stars:
             if enemy.get_rect().colliderect(s.get_rect()):
                 self.stars.remove(s)
-                # enemy.hit()
+                enemy.hit()
 
     def update(self, keys):
         self.prev_x = self.x
@@ -474,5 +506,9 @@ while True:
     else:
         end_img = pygame.font.Font(None, 75).render(f"GAME OVER", True, (255, 50, 100))
         screen.blit(end_img, (SCREEN_WIDTH / 2 - 135, SCREEN_HEIGHT / 2 - 20))
+    if maze.is_completed():
+        maze = Maze()
+        r = maze.get_random_path().get_rect()
+        hero.go_to_position(r.centerx, r.centery)
 
     pygame.display.flip()
