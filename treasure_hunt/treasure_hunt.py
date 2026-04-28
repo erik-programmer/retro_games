@@ -106,14 +106,14 @@ class Enemy:
     def __init__(self, x, y):
 
         self.images = {
-            pygame.K_RIGHT: load_images("goblin/right", 20)
-            + load_images("goblin/right_hurt", 5),
-            pygame.K_LEFT: load_images("goblin/left", 20)
-            + load_images("goblin/left_hurt", 5),
-            pygame.K_UP: load_images("goblin/back", 20)
-            + load_images("goblin/back_hurt", 5),
-            pygame.K_DOWN: load_images("goblin/front", 20)
-            + load_images("goblin/front_hurt", 5),
+            pygame.K_RIGHT: load_images("enemy/male_goblin/right", 20)
+            + load_images("enemy/male_goblin/right_hurt", 5),
+            pygame.K_LEFT: load_images("enemy/male_goblin/left", 20)
+            + load_images("enemy/male_goblin/left_hurt", 5),
+            pygame.K_UP: load_images("enemy/male_goblin/back", 20)
+            + load_images("enemy/male_goblin/back_hurt", 5),
+            pygame.K_DOWN: load_images("enemy/male_goblin/front", 20)
+            + load_images("enemy/male_goblin/front_hurt", 5),
         }
 
         self.image = self.images[pygame.K_DOWN][0]
@@ -185,7 +185,7 @@ class Enemy:
 
 
 class Maze:
-    def __init__(self) -> None:
+    def __init__(self, level) -> None:
         self.coin_images = load_images("coin/coin", 8) + load_images(
             "coin/collected_coin", 6
         )
@@ -195,6 +195,7 @@ class Maze:
         self.paths: list[Path] = []
         self.walls: list[Wall] = []
         self.enemies: list[Enemy] = []
+        self.level = level
 
         for x in range(1, SCREEN_WIDTH // TILE_SIZE - 1):
             for y in range(1, SCREEN_HEIGHT // TILE_SIZE - 1):
@@ -286,7 +287,7 @@ class Maze:
     def get_random_path(self):
         return random.choice(self.paths)
 
-    def draw(self, screen):
+    def draw(self, screen, font):
         for p in self.paths:
             p.draw(screen)
         for w in self.walls:
@@ -295,6 +296,8 @@ class Maze:
             c.draw(screen)
         for e in self.enemies:
             e.draw(screen)
+        level_img = font.render(f"Level: {self.level}", True, (255, 255, 255))
+        screen.blit(level_img, (0, 75))
 
 
 class Star:
@@ -474,7 +477,7 @@ pygame.display.set_caption("Treasure hunt")
 font = pygame.font.Font(None, 25)
 
 
-maze = Maze()
+maze = Maze(1)
 r = maze.get_random_path().get_rect()
 hero = Hero(r.centerx, r.centery)
 
@@ -500,14 +503,14 @@ while True:
 
     maze.check_touched_wall(hero)
 
-    maze.draw(screen)
+    maze.draw(screen, font)
     if hero.is_alive():
         hero.draw(screen, font)
     else:
         end_img = pygame.font.Font(None, 75).render(f"GAME OVER", True, (255, 50, 100))
         screen.blit(end_img, (SCREEN_WIDTH / 2 - 135, SCREEN_HEIGHT / 2 - 20))
     if maze.is_completed():
-        maze = Maze()
+        maze = Maze(maze.level + 1)
         r = maze.get_random_path().get_rect()
         hero.go_to_position(r.centerx, r.centery)
 
