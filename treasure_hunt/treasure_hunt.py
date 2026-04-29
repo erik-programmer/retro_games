@@ -225,6 +225,32 @@ class Maze:
         self.walls: list[Wall] = []
         self.enemies: list[Enemy] = []
         self.level = level
+        self.level_enemies = {
+            1: [EnemyType.MALE_GOBLIN, EnemyType.MALE_GOBLIN],
+            2: [EnemyType.MALE_GOBLIN, EnemyType.MALE_GOBLIN, EnemyType.MALE_GOBLIN],
+            3: [EnemyType.MALE_GOBLIN, EnemyType.MALE_GOBLIN, EnemyType.FEMALE_GOBLIN],
+            4: [
+                EnemyType.MALE_GOBLIN,
+                EnemyType.FEMALE_GOBLIN,
+                EnemyType.FEMALE_GOBLIN,
+            ],
+            5: [
+                EnemyType.FEMALE_GOBLIN,
+                EnemyType.FEMALE_GOBLIN,
+                EnemyType.FEMALE_GOBLIN,
+            ],
+            6: [
+                EnemyType.FEMALE_GOBLIN,
+                EnemyType.FEMALE_GOBLIN,
+                EnemyType.CHIEF_GOBLIN,
+            ],
+            7: [
+                EnemyType.FEMALE_GOBLIN,
+                EnemyType.CHIEF_GOBLIN,
+                EnemyType.CHIEF_GOBLIN,
+            ],
+            8: [EnemyType.CHIEF_GOBLIN, EnemyType.CHIEF_GOBLIN, EnemyType.CHIEF_GOBLIN],
+        }
 
         for x in range(1, SCREEN_WIDTH // TILE_SIZE - 1):
             for y in range(1, SCREEN_HEIGHT // TILE_SIZE - 1):
@@ -270,19 +296,10 @@ class Maze:
             )
         ps = random.sample(self.paths, random.choice(range(1, 11)))
         self.coins = list(Coin(p.x, p.y, self.coin_images) for p in ps)
-        ps = random.sample(self.paths, 2)
-        self.enemies = list(
-            Enemy(p.get_rect().centerx, p.get_rect().centery, EnemyType.MALE_GOBLIN)
-            for p in ps
-        )
-        p = random.choice(self.paths)
-        self.enemies.append(
-            Enemy(p.get_rect().centerx, p.get_rect().centery, EnemyType.FEMALE_GOBLIN)
-        )
-        p = random.choice(self.paths)
-        self.enemies.append(
-            Enemy(p.get_rect().centerx, p.get_rect().centery, EnemyType.CHIEF_GOBLIN)
-        )
+
+        for et in self.level_enemies[self.level]:
+            p = random.choice(self.paths)
+            self.enemies.append(Enemy(p.get_rect().centerx, p.get_rect().centery, et))
 
     def get_possible_directions(self, enemy: Enemy):
         r = []
@@ -429,9 +446,10 @@ class Hero:
         self.lives = 3
         self.blink_counter = -1
 
-    def go_to_position(self, x, y):
+    def start_new_level(self, x, y):
         self.image = self.images[pygame.K_DOWN][0]
         self.image_number = 0
+        self.lives = 3
         self.x = x
         self.y = y
         self.movement_direction = pygame.K_DOWN
@@ -596,6 +614,6 @@ while True:
     if maze.is_completed():
         maze = Maze(maze.level + 1)
         r = maze.get_random_path().get_rect()
-        hero.go_to_position(r.centerx, r.centery)
+        hero.start_new_level(r.centerx, r.centery)
 
     pygame.display.flip()
