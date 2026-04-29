@@ -4,8 +4,14 @@ from enum import Enum
 TILE_SIZE = 64
 SCREEN_HEIGHT = TILE_SIZE * 12
 SCREEN_WIDTH = TILE_SIZE * 15
-HERO_SPEED = 2 * 4
-ENEMY_SPEED = HERO_SPEED * 0.5
+HERO_SPEED = TILE_SIZE // 8
+ENEMY_SPEED = TILE_SIZE // 16
+
+
+class EnemyType(Enum):
+    MALE_GOBLIN = 1
+    FEMALE_GOBLIN = 2
+    CHIEF_GOBLIN = 3
 
 
 def load_images(path, limit):
@@ -103,19 +109,27 @@ class Coin:
 
 
 class Enemy:
-    def __init__(self, x, y):
+    def __init__(self, x, y, type: EnemyType):
+        self.type = type
+        image_dir = ""
+
+        image_dir = self.type.name.lower()
+        if self.type == EnemyType.CHIEF_GOBLIN:
+            self.lives = 3
+        else:
+            self.lives = 1
 
         self.images = {
-            pygame.K_RIGHT: load_images("enemy/male_goblin/right", 20)
-            + load_images("enemy/male_goblin/right_hurt", 5),
-            pygame.K_LEFT: load_images("enemy/male_goblin/left", 20)
-            + load_images("enemy/male_goblin/left_hurt", 5),
-            pygame.K_UP: load_images("enemy/male_goblin/back", 20)
-            + load_images("enemy/male_goblin/back_hurt", 5),
-            pygame.K_DOWN: load_images("enemy/male_goblin/front", 20)
-            + load_images("enemy/male_goblin/front_hurt", 5),
+            pygame.K_RIGHT: load_images(f"enemy/{image_dir}/right", 20)
+            + load_images(f"enemy/{image_dir}/right_hurt", 5),
+            pygame.K_LEFT: load_images(f"enemy/{image_dir}/left", 20)
+            + load_images(f"enemy/{image_dir}/left_hurt", 5),
+            pygame.K_UP: load_images(f"enemy/{image_dir}/back", 20)
+            + load_images(f"enemy/{image_dir}/back_hurt", 5),
+            pygame.K_DOWN: load_images(f"enemy/{image_dir}/front", 20)
+            + load_images(f"enemy/{image_dir}/front_hurt", 5),
         }
-
+        self.movement_direction_change_time = 0
         self.image = self.images[pygame.K_DOWN][0]
         self.image_number = 0
         self.x = x
@@ -124,8 +138,17 @@ class Enemy:
         self.hit_time = 0
         self.is_dead = False
 
-    def update(self):
+    def update(self, directions):
         if self.hit_time == 0:
+            if self.movement_direction_change_time + 1000 < pygame.time.get_ticks():
+                if (
+                    self.type == EnemyType.FEMALE_GOBLIN
+                    or self.type == EnemyType.CHIEF_GOBLIN
+                ):
+                    if directions:
+                        self.movement_direction = random.choice(directions)
+                        self.movement_direction_change_time = pygame.time.get_ticks()
+
             if self.movement_direction == pygame.K_LEFT:
                 self.image = self.images[pygame.K_LEFT][self.image_number]
                 self.image_number += 1
@@ -151,11 +174,17 @@ class Enemy:
                 self.image_number += 1
                 self.image = self.images[self.movement_direction][self.image_number]
             if self.image_number > 23:
-                self.is_dead = True
+                if self.lives == 0:
+                    self.is_dead = True
+                else:
+                    self.image_number = 0
+                    self.image = self.images[self.movement_direction][self.image_number]
+                    self.hit_time = 0
 
     def hit(self):
         self.hit_time = pygame.time.get_ticks()
         self.image_number = 19
+        self.lives -= 1
 
     def check_touched_wall(self, wall: Wall):
         if wall.get_rect().colliderect(self.get_rect()):
@@ -241,28 +270,76 @@ class Maze:
             )
         ps = random.sample(self.paths, random.choice(range(1, 11)))
         self.coins = list(Coin(p.x, p.y, self.coin_images) for p in ps)
-        ps = random.sample(self.paths, 3)
+        ps = random.sample(self.paths, 2)
         self.enemies = list(
-            Enemy(p.get_rect().centerx, p.get_rect().centery) for p in ps
+            Enemy(p.get_rect().centerx, p.get_rect().centery, EnemyType.MALE_GOBLIN)
+            for p in ps
         )
+        p = random.choice(self.paths)
+        self.enemies.append(
+            Enemy(p.get_rect().centerx, p.get_rect().centery, EnemyType.FEMALE_GOBLIN)
+        )
+        p = random.choice(self.paths)
+        self.enemies.append(
+            Enemy(p.get_rect().centerx, p.get_rect().centery, EnemyType.CHIEF_GOBLIN)
+        )
+
+    def get_possible_directions(self, enemy: Enemy):
+        r = []
+        ep = next(
+            (
+                p
+                for p in self.paths
+                if p.get_rect().centerx == enemy.get_rect().centerx
+                and p.get_rect().centery == enemy.get_rect().centery
+            ),
+            None,
+        )
+        if not ep:
+            return r
+        if any(
+            p.get_rect().centerx - TILE_SIZE == ep.get_rect().centerx
+            and p.get_rect().centery == ep.get_rect().centery
+            for p in self.paths
+        ):
+            r.append(pygame.K_RIGHT)
+        if any(
+            p.get_rect().centerx + TILE_SIZE == ep.get_rect().centerx
+            and p.get_rect().centery == ep.get_rect().centery
+            for p in self.paths
+        ):
+            r.append(pygame.K_LEFT)
+        if any(
+            p.get_rect().centerx == ep.get_rect().centerx
+            and p.get_rect().centery - TILE_SIZE == ep.get_rect().centery
+            for p in self.paths
+        ):
+            r.append(pygame.K_DOWN)
+        if any(
+            p.get_rect().centerx == ep.get_rect().centerx
+            and p.get_rect().centery + TILE_SIZE == ep.get_rect().centery
+            for p in self.paths
+        ):
+            r.append(pygame.K_UP)
+        return r
 
     def update(self):
         for c in self.coins:
             c.update()
-            if c.has_disappeared:
-                self.coins.remove(c)
+        self.coins = [c for c in self.coins if not c.has_disappeared]
         if not self.coins:
             ps = random.sample(self.paths, random.choice(range(1, 11)))
             self.coins = list(Coin(p.x, p.y, self.coin_images) for p in ps)
+
         for w in self.walls:
             w.update()
             if w.is_destroyed:
-                self.walls.remove(w)
                 self.paths.append(Path(w.x, w.y, self.path_image))
+        self.walls = [w for w in self.walls if not w.is_destroyed]
+
         for e in self.enemies:
-            e.update()
-            if e.is_dead:
-                self.enemies.remove(e)
+            e.update(self.get_possible_directions(e))
+        self.enemies = [e for e in self.enemies if not e.is_dead]
 
     def is_completed(self):
         return not self.enemies
@@ -370,19 +447,26 @@ class Hero:
     def check_touched_wall(self, wall: Wall):
         if wall.get_rect().colliderect(self.get_rect()):
             self.go_to_prev_position()
+
+        r = []
         for s in self.stars:
             if wall.get_rect().colliderect(s.get_rect()):
-                self.stars.remove(s)
+                r.append(s)
                 wall.hit()
+
+        self.stars = [s for s in self.stars if s not in r]
 
     def check_touched_enemy(self, enemy: Enemy):
         if enemy.get_rect().colliderect(self.get_rect()) and self.blink_counter == -1:
             self.lives -= 1
             self.blink_counter = 0
+
+        r = []
         for s in self.stars:
             if enemy.get_rect().colliderect(s.get_rect()):
-                self.stars.remove(s)
+                r.append(s)
                 enemy.hit()
+        self.stars = [s for s in self.stars if s not in r]
 
     def update(self, keys):
         self.prev_x = self.x
