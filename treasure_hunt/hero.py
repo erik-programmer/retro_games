@@ -111,7 +111,7 @@ class Hero:
         if (
             event.type == pygame.KEYDOWN
             and event.key == pygame.K_SPACE
-            # and (self.points // 5 - self.stars_spend) > 0
+            and (self.points // 5 - self.stars_spend) > 0
         ):
             self.stars.append(
                 Star(self.x, self.y, self.star_image, self.movement_direction)
