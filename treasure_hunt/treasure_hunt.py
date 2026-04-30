@@ -174,7 +174,7 @@ class Enemy:
                 self.image_number += 1
                 self.image = self.images[self.movement_direction][self.image_number]
             if self.image_number > 23:
-                if self.lives == 0:
+                if self.lives < 1:
                     self.is_dead = True
                 else:
                     self.image_number = 0
@@ -611,7 +611,8 @@ while True:
     else:
         end_img = pygame.font.Font(None, 75).render(f"GAME OVER", True, (255, 50, 100))
         screen.blit(end_img, (SCREEN_WIDTH / 2 - 135, SCREEN_HEIGHT / 2 - 20))
-    if maze.is_completed():
+
+    if maze.is_completed() and maze.level < 8:
         maze = Maze(maze.level + 1)
         r = maze.get_random_path().get_rect()
         hero.start_new_level(r.centerx, r.centery)
