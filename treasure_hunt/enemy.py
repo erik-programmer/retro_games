@@ -4,12 +4,14 @@ import pygame, random
 from utils import *
 from constants import *
 from wall import Wall
+from fire import Fire
 
 
 class EnemyType(Enum):
     MALE_GOBLIN = 1
     FEMALE_GOBLIN = 2
     CHIEF_GOBLIN = 3
+    CAVEMAN = 4
 
 
 class Enemy:
@@ -33,6 +35,7 @@ class Enemy:
             pygame.K_DOWN: load_images(f"enemy/{image_dir}/front", 20)
             + load_images(f"enemy/{image_dir}/front_hurt", 5),
         }
+        self.fires: list[Fire] = []
         self.movement_direction_change_time = 0
         self.image = self.images[pygame.K_DOWN][0]
         self.image_number = 0
@@ -41,13 +44,24 @@ class Enemy:
         self.movement_direction = random.choice([pygame.K_LEFT, pygame.K_UP])
         self.hit_time = 0
         self.is_dead = False
+        self.update_counter = 0
 
     def update(self, directions):
+        fs = []
+        for f in self.fires:
+            if not f.is_dead:
+                fs.append(f)
+        self.fires = fs
+
+        self.update_counter += 1
+        for f in self.fires:
+            f.update()
         if self.hit_time == 0:
             if self.movement_direction_change_time + 1000 < pygame.time.get_ticks():
                 if (
                     self.type == EnemyType.FEMALE_GOBLIN
                     or self.type == EnemyType.CHIEF_GOBLIN
+                    or self.type == EnemyType.CAVEMAN
                 ):
                     if directions:
                         self.movement_direction = random.choice(directions)
@@ -72,6 +86,9 @@ class Enemy:
 
             if self.image_number == 20:
                 self.image_number = 0
+            if self.update_counter > 200 and self.type == EnemyType.CAVEMAN:
+                self.update_counter = 0
+                self.fires.append(Fire(self.x, self.y))
         else:
             if self.hit_time + 100 > pygame.time.get_ticks():
                 self.hit_time = pygame.time.get_ticks()
@@ -109,9 +126,8 @@ class Enemy:
         return collision_rect
 
     def draw(self, screen: pygame.Surface):
-        collision_rect = self.image.get_rect(center=(self.x, self.y))
-        collision_rect.x += 10
-        collision_rect.width -= 20
         # pygame.draw.rect(screen, (255, 50, 50), collision_rect)
+        for f in self.fires:
+            f.draw(screen)
         rect = self.image.get_rect(center=(self.x, self.y))
         screen.blit(self.image, rect)

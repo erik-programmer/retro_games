@@ -60,6 +60,12 @@ class Hero:
         if enemy.get_rect().colliderect(self.get_rect()) and self.blink_counter == -1:
             self.lives -= 1
             self.blink_counter = 0
+        for f in enemy.fires:
+            if f.get_rect().colliderect(self.get_rect()) and self.blink_counter == -1:
+                self.lives -= 1
+                self.blink_counter = 0
+            
+        
 
         r = []
         for s in self.stars:
@@ -113,7 +119,7 @@ class Hero:
         if (
             event.type == pygame.KEYDOWN
             and event.key == pygame.K_SPACE
-            and (self.points // 5 - self.stars_spend) > 0
+          #  and (self.points // 5 - self.stars_spend) > 0
         ):
             self.stars.append(
                 Star(self.x, self.y, self.star_image, self.movement_direction)
@@ -130,6 +136,8 @@ class Hero:
         collision_rect = self.image.get_rect(center=(self.x, self.y))
         collision_rect.x += 10
         collision_rect.width -= 20
+        collision_rect.y += 1
+        collision_rect.height -= 2
 
         return collision_rect
 
@@ -137,9 +145,6 @@ class Hero:
         return self.lives > 0
 
     def draw(self, screen: pygame.Surface, font):
-        collision_rect = self.image.get_rect(center=(self.x, self.y))
-        collision_rect.x += 10
-        collision_rect.width -= 20
         rect = self.image.get_rect(center=(self.x, self.y))
         if self.blink_counter % 2 == 1 or self.blink_counter == -1:
             screen.blit(self.image, rect)

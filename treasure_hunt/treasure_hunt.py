@@ -75,9 +75,8 @@ while True:
             screen.blit(end_img, (SCREEN_WIDTH / 2 - 135, SCREEN_HEIGHT / 2 - 20))
 
         if maze.is_completed():
-            
             is_game_started = False
-            if data["level"] < 8:
+            if maze.level < 8 and maze.level == data["level"]:
                 data["level"] += 1
             level_menu = LevelMenu(data["level"])
             json.dump(data, open(DATA_FILE, "w"))
