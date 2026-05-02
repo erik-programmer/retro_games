@@ -1,3 +1,4 @@
+DATA_FILE = "treasure_hunt/data.json"
 TILE_SIZE = 64
 SCREEN_HEIGHT = TILE_SIZE * 12
 SCREEN_WIDTH = TILE_SIZE * 15

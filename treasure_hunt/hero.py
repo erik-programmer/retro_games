@@ -33,6 +33,8 @@ class Hero:
         self.lives = 3
         self.x = x
         self.y = y
+        self.stars_spend = 0
+        self.points = 0
         self.movement_direction = pygame.K_DOWN
         self.stars: list[Star] = []
 
