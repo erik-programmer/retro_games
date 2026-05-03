@@ -33,8 +33,8 @@ class Heart:
         self.was_collected = True
 
     def get_rect(self):
-        return self.images[self.image_number].get_rect(topleft=(self.x, self.y))
+        return self.images[self.image_number].get_rect(center=(self.x, self.y))
 
     def draw(self, screen: pygame.Surface):
         if not self.has_disappeared:
-            screen.blit(self.images[self.image_number], (self.x, self.y))
+            screen.blit(self.images[self.image_number], self.get_rect())

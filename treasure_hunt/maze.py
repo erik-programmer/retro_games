@@ -68,7 +68,9 @@ class Maze:
                         Path(x * TILE_SIZE, y * TILE_SIZE, self.path_image)
                     )
         w = random.choice(self.walls)
-        self.heart = Heart(w.x, w.y, self.heart_images)
+        self.heart = Heart(
+            w.get_rect().centerx, w.get_rect().centery, self.heart_images
+        )
         for x in range(0, SCREEN_WIDTH // TILE_SIZE):
             self.walls.append(
                 Wall(x * TILE_SIZE, 0, self.wall_images, True, self.path_image)
@@ -141,6 +143,49 @@ class Maze:
             r.append(pygame.K_UP)
         return r
 
+    def get_possible_directions_only_border_walls(self, enemy: Enemy):
+        r = [pygame.K_RIGHT, pygame.K_LEFT, pygame.K_UP, pygame.K_DOWN]
+        ep = next(
+            (
+                p
+                for p in self.paths
+                if p.get_rect().centerx == enemy.get_rect().centerx
+                and p.get_rect().centery == enemy.get_rect().centery
+            ),
+            None,
+        )
+        if not ep:
+            return []
+        if any(
+            w.get_rect().centerx - TILE_SIZE == ep.get_rect().centerx
+            and w.get_rect().centery == ep.get_rect().centery
+            and w.is_border_wall
+            for w in self.walls
+        ):
+            r.remove(pygame.K_RIGHT)
+        if any(
+            w.get_rect().centerx + TILE_SIZE == ep.get_rect().centerx
+            and w.get_rect().centery == ep.get_rect().centery
+            and w.is_border_wall
+            for w in self.walls
+        ):
+            r.remove(pygame.K_LEFT)
+        if any(
+            w.get_rect().centerx == ep.get_rect().centerx
+            and w.get_rect().centery - TILE_SIZE == ep.get_rect().centery
+            and w.is_border_wall
+            for w in self.walls
+        ):
+            r.remove(pygame.K_DOWN)
+        if any(
+            w.get_rect().centerx == ep.get_rect().centerx
+            and w.get_rect().centery + TILE_SIZE == ep.get_rect().centery
+            and w.is_border_wall
+            for w in self.walls
+        ):
+            r.remove(pygame.K_UP)
+        return r
+
     def update(self):
         for c in self.coins:
             c.update()
@@ -156,7 +201,10 @@ class Maze:
         self.walls = [w for w in self.walls if not w.is_destroyed]
 
         for e in self.enemies:
-            e.update(self.get_possible_directions(e))
+            if e.type == EnemyType.THUG:
+                e.update(self.get_possible_directions_only_border_walls(e))
+            else:
+                e.update(self.get_possible_directions(e))
         self.enemies = [e for e in self.enemies if not e.is_dead]
         self.heart.update()
 

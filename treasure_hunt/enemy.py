@@ -12,6 +12,7 @@ class EnemyType(Enum):
     FEMALE_GOBLIN = 2
     CHIEF_GOBLIN = 3
     CAVEMAN = 4
+    THUG = 5
 
 
 class Enemy:
@@ -62,6 +63,7 @@ class Enemy:
                     self.type == EnemyType.FEMALE_GOBLIN
                     or self.type == EnemyType.CHIEF_GOBLIN
                     or self.type == EnemyType.CAVEMAN
+                    or self.type == EnemyType.THUG
                 ):
                     if directions:
                         self.movement_direction = random.choice(directions)
@@ -108,15 +110,18 @@ class Enemy:
         self.lives -= 1
 
     def check_touched_wall(self, wall: Wall):
-        if wall.get_rect().colliderect(self.get_rect()):
-            if self.movement_direction == pygame.K_LEFT:
-                self.movement_direction = pygame.K_RIGHT
-            elif self.movement_direction == pygame.K_RIGHT:
-                self.movement_direction = pygame.K_LEFT
-            elif self.movement_direction == pygame.K_UP:
-                self.movement_direction = pygame.K_DOWN
-            elif self.movement_direction == pygame.K_DOWN:
-                self.movement_direction = pygame.K_UP
+        if EnemyType.THUG != self.type or (
+            self.type == EnemyType.THUG and wall.is_border_wall
+        ):
+            if wall.get_rect().colliderect(self.get_rect()):
+                if self.movement_direction == pygame.K_LEFT:
+                    self.movement_direction = pygame.K_RIGHT
+                elif self.movement_direction == pygame.K_RIGHT:
+                    self.movement_direction = pygame.K_LEFT
+                elif self.movement_direction == pygame.K_UP:
+                    self.movement_direction = pygame.K_DOWN
+                elif self.movement_direction == pygame.K_DOWN:
+                    self.movement_direction = pygame.K_UP
 
     def get_rect(self):
         collision_rect = self.image.get_rect(center=(self.x, self.y))

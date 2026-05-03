@@ -64,8 +64,6 @@ class Hero:
             if f.get_rect().colliderect(self.get_rect()) and self.blink_counter == -1:
                 self.lives -= 1
                 self.blink_counter = 0
-            
-        
 
         r = []
         for s in self.stars:
@@ -119,7 +117,7 @@ class Hero:
         if (
             event.type == pygame.KEYDOWN
             and event.key == pygame.K_SPACE
-          #  and (self.points // 5 - self.stars_spend) > 0
+            and (self.points // 5 - self.stars_spend) > 0
         ):
             self.stars.append(
                 Star(self.x, self.y, self.star_image, self.movement_direction)
