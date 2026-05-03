@@ -1,4 +1,4 @@
-import pygame
+import pygame, random
 from utils import *
 
 
@@ -11,6 +11,7 @@ class Fire:
         self.images = load_images("/enemy/fire/fire", 6)
         self.life_time = self.start_time
         self.is_dead = False
+        self.life_span = random.randint(15000, 25000)
 
     def update(self):
         if self.start_time + 50 < pygame.time.get_ticks():
@@ -18,7 +19,7 @@ class Fire:
             self.start_time = pygame.time.get_ticks()
             if self.image_number == 6:
                 self.image_number = 0
-        if self.life_time + 5000 < pygame.time.get_ticks():
+        if self.life_time + self.life_span < pygame.time.get_ticks():
             self.is_dead = True
 
     def get_rect(self):

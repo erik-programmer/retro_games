@@ -5,13 +5,13 @@ from utils import *
 class LevelMenu:
     def __init__(self, max_unlocked_level):
         self.max_unlocked_level = max_unlocked_level
-        self.unlocked_level_imgs = load_images("level_menu/level", 8)
-        self.locked_level_imgs = load_images("level_menu/level_grey", 8)
+        self.unlocked_level_imgs = load_images("level_menu/stone/level", 8)
+        self.locked_level_imgs = load_images("level_menu/stone/level_grey", 8)
         self.selected_level = max_unlocked_level
 
     def is_level_selectable(self):
         return self.selected_level <= self.max_unlocked_level
-    
+
     def process_event(self, event):
         if event.type == pygame.KEYDOWN and event.key == pygame.K_LEFT:
             self.selected_level -= 1

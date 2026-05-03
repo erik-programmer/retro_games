@@ -18,8 +18,8 @@ class Maze:
             "heart/heart_frame", 25
         )
 
-        self.path_image = pygame.image.load("treasure_hunt/images/path.png")
-        self.wall_images = load_images("wall/wall_impact", 10)
+        self.path_image = pygame.image.load("treasure_hunt/images/path/stone/path.png")
+        self.wall_images = load_images("wall/stone/wall_impact", 10)
         self.paths: list[Path] = []
         self.walls: list[Wall] = []
         self.enemies: list[Enemy] = []
@@ -182,7 +182,7 @@ class Maze:
             for e in self.enemies:
                 e.check_touched_wall(w)
 
-    def check_touched_enemy(self, hero):
+    def check_touched_enemy(self, hero: Hero):
         for e in self.enemies:
             hero.check_touched_enemy(e)
 
