@@ -23,7 +23,7 @@ selected_level = 0
 
 maze = Maze(1)
 r = maze.get_random_path().get_rect()
-hero = Hero(r.centerx, r.centery)
+hero = Hero(r.centerx, r.centery, data["gems"])
 
 while True:
 
@@ -59,9 +59,7 @@ while True:
         maze.update()
 
         if hero.is_alive():
-            maze.check_touched_coin(hero)
-            maze.check_touched_enemy(hero)
-            maze.check_touched_heart(hero)
+            maze.check_touched_collectables(hero)
 
         maze.check_touched_wall(hero)
 
@@ -78,6 +76,7 @@ while True:
             is_game_started = False
             if maze.level < 8 and maze.level == data["level"]:
                 data["level"] += 1
+            data["gems"] = hero.gems
             level_menu = LevelMenu(data["level"])
             json.dump(data, open(DATA_FILE, "w"))
 

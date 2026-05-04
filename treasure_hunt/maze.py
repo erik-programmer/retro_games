@@ -7,6 +7,7 @@ from coin import Coin
 from enemy import Enemy, EnemyType
 from hero import Hero
 from heart import Heart
+from chest import Chest
 
 
 class Maze:
@@ -17,6 +18,7 @@ class Maze:
         self.heart_images = load_images("heart/heart", 25) + load_images(
             "heart/heart_frame", 25
         )
+        self.chest_images = load_images("chest/chest", 16)
 
         self.path_image = pygame.image.load("treasure_hunt/images/path/stone/path.png")
         self.wall_images = load_images("wall/stone/wall_impact", 10)
@@ -71,6 +73,12 @@ class Maze:
         self.heart = Heart(
             w.get_rect().centerx, w.get_rect().centery, self.heart_images
         )
+        self.chest = None
+        if random.randint(1, 2) == 2:
+            w = random.choice(self.walls)
+            self.chest = Chest(
+                w.get_rect().centerx, w.get_rect().centery, self.chest_images
+            )
         for x in range(0, SCREEN_WIDTH // TILE_SIZE):
             self.walls.append(
                 Wall(x * TILE_SIZE, 0, self.wall_images, True, self.path_image)
@@ -104,46 +112,7 @@ class Maze:
             p = random.choice(self.paths)
             self.enemies.append(Enemy(p.get_rect().centerx, p.get_rect().centery, et))
 
-    def get_possible_directions(self, enemy: Enemy):
-        r = []
-        ep = next(
-            (
-                p
-                for p in self.paths
-                if p.get_rect().centerx == enemy.get_rect().centerx
-                and p.get_rect().centery == enemy.get_rect().centery
-            ),
-            None,
-        )
-        if not ep:
-            return r
-        if any(
-            p.get_rect().centerx - TILE_SIZE == ep.get_rect().centerx
-            and p.get_rect().centery == ep.get_rect().centery
-            for p in self.paths
-        ):
-            r.append(pygame.K_RIGHT)
-        if any(
-            p.get_rect().centerx + TILE_SIZE == ep.get_rect().centerx
-            and p.get_rect().centery == ep.get_rect().centery
-            for p in self.paths
-        ):
-            r.append(pygame.K_LEFT)
-        if any(
-            p.get_rect().centerx == ep.get_rect().centerx
-            and p.get_rect().centery - TILE_SIZE == ep.get_rect().centery
-            for p in self.paths
-        ):
-            r.append(pygame.K_DOWN)
-        if any(
-            p.get_rect().centerx == ep.get_rect().centerx
-            and p.get_rect().centery + TILE_SIZE == ep.get_rect().centery
-            for p in self.paths
-        ):
-            r.append(pygame.K_UP)
-        return r
-
-    def get_possible_directions_only_border_walls(self, enemy: Enemy):
+    def get_possible_directions(self, enemy: Enemy, consider_all_walls: bool):
         r = [pygame.K_RIGHT, pygame.K_LEFT, pygame.K_UP, pygame.K_DOWN]
         ep = next(
             (
@@ -159,28 +128,28 @@ class Maze:
         if any(
             w.get_rect().centerx - TILE_SIZE == ep.get_rect().centerx
             and w.get_rect().centery == ep.get_rect().centery
-            and w.is_border_wall
+            and (consider_all_walls or w.is_border_wall)
             for w in self.walls
         ):
             r.remove(pygame.K_RIGHT)
         if any(
             w.get_rect().centerx + TILE_SIZE == ep.get_rect().centerx
             and w.get_rect().centery == ep.get_rect().centery
-            and w.is_border_wall
+            and (consider_all_walls or w.is_border_wall)
             for w in self.walls
         ):
             r.remove(pygame.K_LEFT)
         if any(
             w.get_rect().centerx == ep.get_rect().centerx
             and w.get_rect().centery - TILE_SIZE == ep.get_rect().centery
-            and w.is_border_wall
+            and (consider_all_walls or w.is_border_wall)
             for w in self.walls
         ):
             r.remove(pygame.K_DOWN)
         if any(
             w.get_rect().centerx == ep.get_rect().centerx
             and w.get_rect().centery + TILE_SIZE == ep.get_rect().centery
-            and w.is_border_wall
+            and (consider_all_walls or w.is_border_wall)
             for w in self.walls
         ):
             r.remove(pygame.K_UP)
@@ -201,12 +170,11 @@ class Maze:
         self.walls = [w for w in self.walls if not w.is_destroyed]
 
         for e in self.enemies:
-            if e.type == EnemyType.THUG:
-                e.update(self.get_possible_directions_only_border_walls(e))
-            else:
-                e.update(self.get_possible_directions(e))
+            e.update(self.get_possible_directions(e, e.type != EnemyType.THUG))
         self.enemies = [e for e in self.enemies if not e.is_dead]
         self.heart.update()
+        if self.chest:
+            self.chest.update()
 
     def is_completed(self):
         return not self.enemies
@@ -224,6 +192,13 @@ class Maze:
                 hero.change_lives()
             self.heart.collected()
 
+    def check_touched_chest(self, hero: Hero):
+        if self.chest:
+            if self.chest.get_rect().colliderect(hero.get_rect()):
+                if not self.chest.was_collected:
+                    hero.change_gems(GEMS_IN_CHEST)
+                self.chest.collected()
+
     def check_touched_wall(self, hero: Hero):
         for w in self.walls:
             hero.check_touched_wall(w)
@@ -234,6 +209,12 @@ class Maze:
         for e in self.enemies:
             hero.check_touched_enemy(e)
 
+    def check_touched_collectables(self, hero: Hero):
+        self.check_touched_coin(hero)
+        self.check_touched_enemy(hero)
+        self.check_touched_heart(hero)
+        self.check_touched_chest(hero)
+
     def get_random_path(self):
         return random.choice(self.paths)
 
@@ -242,6 +223,8 @@ class Maze:
         for p in self.paths:
             p.draw(screen)
         self.heart.draw(screen)
+        if self.chest:
+            self.chest.draw(screen)
         for w in self.walls:
             w.draw(screen)
         for c in self.coins:
@@ -250,4 +233,4 @@ class Maze:
             e.draw(screen)
 
         level_img = font.render(f"Level: {self.level}", True, (255, 255, 255))
-        screen.blit(level_img, (0, 75))
+        screen.blit(level_img, (0, 100))

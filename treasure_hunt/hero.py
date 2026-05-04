@@ -7,7 +7,7 @@ from star import Star
 
 
 class Hero:
-    def __init__(self, x, y):
+    def __init__(self, x, y, gems):
 
         self.images = {
             pygame.K_RIGHT: load_images("assassin/right", 20),
@@ -26,6 +26,7 @@ class Hero:
         self.stars_spend = 0
         self.lives = 3
         self.blink_counter = -1
+        self.gems = gems
 
     def start_new_level(self, x, y):
         self.image = self.images[pygame.K_DOWN][0]
@@ -130,6 +131,9 @@ class Hero:
     def change_lives(self):
         self.lives += 1
 
+    def change_gems(self, n):
+        self.gems += n
+
     def get_rect(self):
         collision_rect = self.image.get_rect(center=(self.x, self.y))
         collision_rect.x += 10
@@ -154,5 +158,7 @@ class Hero:
         screen.blit(stars_img, (0, 25))
         lives_img = font.render(f"Lives: {self.lives}", True, (255, 255, 255))
         screen.blit(lives_img, (0, 50))
+        gems_img = font.render(f"Gems: {self.gems}", True, (255, 255, 255))
+        screen.blit(gems_img, (0, 75))
         for s in self.stars:
             s.draw(screen)
