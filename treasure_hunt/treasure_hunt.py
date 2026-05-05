@@ -6,14 +6,14 @@ from hero import Hero
 from level_menu import LevelMenu
 import json
 
+pygame.init()
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+pygame.display.set_caption("Treasure hunt")
+
 data = json.load(open(DATA_FILE))
 level_menu = LevelMenu(data["level"])
 background_img = pygame.image.load(f"treasure_hunt/images/background.png")
 
-pygame.init()
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-
-pygame.display.set_caption("Treasure hunt")
 
 font = pygame.font.Font(None, 25)
 
