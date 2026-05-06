@@ -21,7 +21,7 @@ font = pygame.font.Font(None, 25)
 is_game_started = False
 selected_level = 0
 
-maze = Maze(1)
+maze = Maze(1, False)
 r = maze.get_random_path().get_rect()
 hero = Hero(r.centerx, r.centery, data["gems"])
 
@@ -41,7 +41,7 @@ while True:
             ):
                 is_game_started = True
                 selected_level = level_menu.selected_level
-                maze = Maze(selected_level)
+                maze = Maze(selected_level, False)
                 r = maze.get_random_path().get_rect()
                 hero.start_new_level(r.centerx, r.centery)
         else:
@@ -73,11 +73,28 @@ while True:
             screen.blit(end_img, (SCREEN_WIDTH / 2 - 135, SCREEN_HEIGHT / 2 - 20))
 
         if maze.is_completed():
-            is_game_started = False
-            if maze.level < 8 and maze.level == data["level"]:
-                data["level"] += 1
-            data["gems"] = hero.gems
-            level_menu = LevelMenu(data["level"])
-            json.dump(data, open(DATA_FILE, "w"))
+            if not maze.is_bonus_level:
+                is_game_started = False
+                if (
+                    maze.level < NUMBER_OF_GRASS_LEVELS + NUMBER_OF_STONE_LEVELS
+                    and maze.level == data["level"]
+                ):
+                    data["level"] += 1
+                data["gems"] = hero.gems
+                level_menu = LevelMenu(data["level"])
+                json.dump(data, open(DATA_FILE, "w"))
+                if (
+                    maze.level == NUMBER_OF_STONE_LEVELS
+                    and not data["is_bonus_completed"]
+                ):
+                    is_game_started = True
+                    maze = Maze(maze.level, True)
+                    r = maze.get_random_path().get_rect()
+                    hero.start_new_level(r.centerx, r.centery)
+            else:
+                is_game_started = False
+                data["gems"] = hero.gems
+                data["is_bonus_completed"] = True
+                json.dump(data, open(DATA_FILE, "w"))
 
     pygame.display.flip()

@@ -8,10 +8,11 @@ from enemy import Enemy, EnemyType
 from hero import Hero
 from heart import Heart
 from chest import Chest
+from gem import Gem
 
 
 class Maze:
-    def __init__(self, level) -> None:
+    def __init__(self, level, is_bonus_level) -> None:
         self.coin_images = load_images("coin/coin", 8) + load_images(
             "coin/collected_coin", 6
         )
@@ -19,13 +20,27 @@ class Maze:
             "heart/heart_frame", 25
         )
         self.chest_images = load_images("chest/chest", 16)
+        if level <= NUMBER_OF_STONE_LEVELS:
+            self.path_image = pygame.image.load(
+                "treasure_hunt/images/path/stone/path.png"
+            )
+            self.wall_images = load_images("wall/stone/wall_impact", 10)
+        else:
+            self.wall_images = load_images("wall/grass/wall_impact", 10)
+            self.path_image = pygame.image.load(
+                "treasure_hunt/images/path/grass/path.png"
+            )
 
-        self.path_image = pygame.image.load("treasure_hunt/images/path/stone/path.png")
-        self.wall_images = load_images("wall/stone/wall_impact", 10)
+        self.gem_image = pygame.image.load("treasure_hunt/images/gem.png")
+
         self.paths: list[Path] = []
         self.walls: list[Wall] = []
         self.enemies: list[Enemy] = []
+        self.gems: list[Gem] = []
+        self.coins: list[Coin] = []
         self.level = level
+        self.is_bonus_level = is_bonus_level
+        self.start_time = pygame.time.get_ticks()
         self.level_enemies = {
             1: [EnemyType.MALE_GOBLIN, EnemyType.MALE_GOBLIN],
             2: [EnemyType.MALE_GOBLIN, EnemyType.MALE_GOBLIN, EnemyType.MALE_GOBLIN],
@@ -51,6 +66,39 @@ class Maze:
                 EnemyType.CHIEF_GOBLIN,
             ],
             8: [EnemyType.CHIEF_GOBLIN, EnemyType.CHIEF_GOBLIN, EnemyType.CHIEF_GOBLIN],
+            9: [EnemyType.CHIEF_GOBLIN, EnemyType.CHIEF_GOBLIN, EnemyType.THUG],
+            10: [
+                EnemyType.CHIEF_GOBLIN,
+                EnemyType.THUG,
+                EnemyType.THUG,
+            ],
+            11: [
+                EnemyType.THUG,
+                EnemyType.THUG,
+                EnemyType.THUG,
+            ],
+            12: [
+                EnemyType.CAVEMAN,
+                EnemyType.THUG,
+                EnemyType.THUG,
+            ],
+            13: [
+                EnemyType.THUG,
+                EnemyType.CAVEMAN,
+                EnemyType.CAVEMAN,
+            ],
+            14: [
+                EnemyType.CAVEMAN,
+                EnemyType.CAVEMAN,
+                EnemyType.CAVEMAN,
+            ],
+            15: [
+                EnemyType.CAVEMAN,
+                EnemyType.THUG,
+                EnemyType.CHIEF_GOBLIN,
+                EnemyType.FEMALE_GOBLIN,
+                EnemyType.MALE_GOBLIN,
+            ],
         }
 
         for x in range(1, SCREEN_WIDTH // TILE_SIZE - 1):
@@ -105,12 +153,20 @@ class Maze:
                     self.path_image,
                 )
             )
-        ps = random.sample(self.paths, random.choice(range(1, 11)))
-        self.coins = list(Coin(p.x, p.y, self.coin_images) for p in ps)
-
-        for et in self.level_enemies[self.level]:
-            p = random.choice(self.paths)
-            self.enemies.append(Enemy(p.get_rect().centerx, p.get_rect().centery, et))
+        if not is_bonus_level:
+            ps = random.sample(self.paths, random.choice(range(1, 11)))
+            self.coins = list(Coin(p.x, p.y, self.coin_images) for p in ps)
+            for et in self.level_enemies[self.level]:
+                p = random.choice(self.paths)
+                self.enemies.append(
+                    Enemy(p.get_rect().centerx, p.get_rect().centery, et)
+                )
+        else:
+            ps = random.sample(self.paths, random.choice(range(1, 11)))
+            self.gems = list(
+                Gem(p.get_rect().centerx, p.get_rect().centery, self.gem_image)
+                for p in ps
+            )
 
     def get_possible_directions(self, enemy: Enemy, consider_all_walls: bool):
         r = [pygame.K_RIGHT, pygame.K_LEFT, pygame.K_UP, pygame.K_DOWN]
@@ -156,12 +212,14 @@ class Maze:
         return r
 
     def update(self):
-        for c in self.coins:
-            c.update()
-        self.coins = [c for c in self.coins if not c.has_disappeared]
-        if not self.coins:
-            ps = random.sample(self.paths, random.choice(range(1, 11)))
-            self.coins = list(Coin(p.x, p.y, self.coin_images) for p in ps)
+
+        if not self.is_bonus_level:
+            for c in self.coins:
+                c.update()
+            self.coins = [c for c in self.coins if not c.has_disappeared]
+            if not self.coins:
+                ps = random.sample(self.paths, random.choice(range(1, 11)))
+                self.coins = list(Coin(p.x, p.y, self.coin_images) for p in ps)
 
         for w in self.walls:
             w.update()
@@ -176,8 +234,19 @@ class Maze:
         if self.chest:
             self.chest.update()
 
+        if not self.gems and self.is_bonus_level:
+            ps = random.sample(self.paths, random.choice(range(1, 11)))
+            self.gems = list(
+                Gem(p.get_rect().centerx, p.get_rect().centery, self.gem_image)
+                for p in ps
+            )
+
     def is_completed(self):
-        return not self.enemies
+        if self.start_time + 10000 < pygame.time.get_ticks() and self.is_bonus_level:
+            return True
+        if not self.is_bonus_level:
+            return not self.enemies
+        return False
 
     def check_touched_coin(self, hero: Hero):
         for c in self.coins:
@@ -191,6 +260,14 @@ class Maze:
             if not self.heart.was_collected:
                 hero.change_lives()
             self.heart.collected()
+
+    def check_touched_gem(self, hero: Hero):
+        r = []
+        for g in self.gems:
+            if g.get_rect().colliderect(hero.get_rect()):
+                hero.change_gems(1)
+                r.append(g)
+        self.gems = list(g for g in self.gems if g not in r)
 
     def check_touched_chest(self, hero: Hero):
         if self.chest:
@@ -210,6 +287,7 @@ class Maze:
             hero.check_touched_enemy(e)
 
     def check_touched_collectables(self, hero: Hero):
+        self.check_touched_gem(hero)
         self.check_touched_coin(hero)
         self.check_touched_enemy(hero)
         self.check_touched_heart(hero)
@@ -231,6 +309,15 @@ class Maze:
             c.draw(screen)
         for e in self.enemies:
             e.draw(screen)
+        for g in self.gems:
+            g.draw(screen)
 
         level_img = font.render(f"Level: {self.level}", True, (255, 255, 255))
         screen.blit(level_img, (0, 100))
+        if self.is_bonus_level:
+            time_img = font.render(
+                f"Time: {(pygame.time.get_ticks() - self.start_time)//1000}",
+                True,
+                (255, 255, 255),
+            )
+            screen.blit(time_img, (0, 125))

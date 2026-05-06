@@ -14,7 +14,7 @@ class Wall:
 
     def update(self):
         if self.hit_time > 0:
-            if self.hit_time + 100 < pygame.time.get_ticks():
+            if self.hit_time + 50 < pygame.time.get_ticks():
                 self.image_number += 1
                 self.hit_time = pygame.time.get_ticks()
             if self.image_number == 10:
