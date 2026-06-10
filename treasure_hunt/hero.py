@@ -3,7 +3,7 @@ from utils import *
 from constants import *
 from wall import Wall
 from enemy import Enemy
-from star import Star
+from star import Star, StarType
 
 
 class Hero:
@@ -27,6 +27,11 @@ class Hero:
         self.lives = 3
         self.blink_counter = -1
         self.gems = gems
+        self.star_type=StarType.BASIC
+        if self.gems >= 20:
+            self.star_type = StarType.ADVANCED
+        if self.gems >= 40:
+            self.star_type = StarType.EXPERT
 
     def start_new_level(self, x, y):
         self.image = self.images[pygame.K_DOWN][0]
@@ -52,7 +57,8 @@ class Hero:
         r = []
         for s in self.stars:
             if wall.get_rect().colliderect(s.get_rect()):
-                r.append(s)
+                if s.type != StarType.EXPERT or wall.is_border_wall:
+                    r.append(s)
                 wall.hit()
 
         self.stars = [s for s in self.stars if s not in r]
@@ -69,7 +75,8 @@ class Hero:
         r = []
         for s in self.stars:
             if enemy.get_rect().colliderect(s.get_rect()):
-                r.append(s)
+                if s.type != StarType.EXPERT:
+                    r.append(s)
                 enemy.hit()
         self.stars = [s for s in self.stars if s not in r]
 
@@ -121,8 +128,12 @@ class Hero:
             and (self.points // 5 - self.stars_spend) > 0
         ):
             self.stars.append(
-                Star(self.x, self.y, self.star_image, self.movement_direction)
+                Star(self.x, self.y, self.star_image, self.movement_direction, self.star_type)
             )
+            if self.star_type==StarType.ADVANCED:
+                self.stars.append(
+                    Star(self.x, self.y, self.star_image, self.movement_direction, StarType.BASIC)
+                )
             self.stars_spend += 1
 
     def change_points(self):
@@ -133,6 +144,10 @@ class Hero:
 
     def change_gems(self, n):
         self.gems += n
+        if self.gems >= 20:
+            self.star_type = StarType.ADVANCED
+        if self.gems >= 40:
+            self.star_type = StarType.EXPERT
 
     def get_rect(self):
         collision_rect = self.image.get_rect(center=(self.x, self.y))
