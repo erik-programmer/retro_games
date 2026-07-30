@@ -37,11 +37,12 @@ class Asteroid:
             Asteroid.images[self.image_number].get_height(),
         )
 
-    def got_hit(self):
+    def got_hit(self, change_points_fn):
         if not self.is_dead:
             self.is_dead = True
             self.image_number = 0
             self.max_image_number = 9
+            change_points_fn()
 
     def update(self):
         if self.timer + 50 < pygame.time.get_ticks():
@@ -54,7 +55,7 @@ class Asteroid:
         self.y += 0.3
 
     def check_touched_border(self):
-        if self.y > SCREEN_HEIGHT:
+        if self.y + Asteroid.images[0].get_height() > SCREEN_HEIGHT:
             self.showed_exploding_images = True
             ship.minus_live()
 
@@ -88,6 +89,19 @@ class Bullet:
         screen.blit(Bullet.image, (self.x, self.y))
 
 
+class Heart:
+    def __init__(self) -> None:
+        self.image = pygame.image.load("space_war/images/heart.png").convert_alpha()
+        self.x = random.randint(0, SCREEN_WIDTH - self.image.get_width())
+        self.y = 0
+
+    def update(self):
+        self.y += 0.3
+
+    def draw(self, screen):
+        screen.blit(self.image, (self.x, self.y))
+
+
 class Ship:
     def __init__(self) -> None:
         self.points = 0
@@ -95,6 +109,8 @@ class Ship:
         self.image = pygame.image.load("space_war/images/ship.png").convert_alpha()
         self.x = SCREEN_WIDTH / 2 - self.image.get_width() / 2
         self.y = SCREEN_HEIGHT - self.image.get_height()
+        heart_image = pygame.image.load("space_war/images/heart.png").convert_alpha()
+        self.scaled_heart_image = pygame.transform.scale(heart_image, (30, 30))
         self.bullets = []
 
     def process_event(self, event):
@@ -106,6 +122,9 @@ class Ship:
             self.x -= 1
         if keys[pygame.K_RIGHT]:
             self.x += 1
+
+    def change_points(self):
+        self.points += 1
 
     def get_rect(self):
         return pygame.Rect(
@@ -122,15 +141,13 @@ class Ship:
         for b in self.bullets:
             if b.get_rect().colliderect(asteroid.get_rect()):
                 b.y = -10
-                self.points += 1
-                asteroid.got_hit()
+                asteroid.got_hit(self.change_points)
 
     def check_touched_asteroid(self, asteroid):
         if not asteroid.is_dead:
             if self.get_rect().colliderect(asteroid.get_rect()):
-                print("jdskl")
                 self.minus_live()
-                asteroid.got_hit()
+                asteroid.got_hit(lambda: None)
 
     def update(self):
         self.bullets = list(b for b in self.bullets if b.y > 0)
@@ -141,10 +158,8 @@ class Ship:
         screen.blit(self.image, (self.x, self.y))
         for b in self.bullets:
             b.draw(screen)
-        lives_img = pygame.font.Font(None, 25).render(
-            f"lives:{self.lives}", True, (255, 50, 100)
-        )
-        screen.blit(lives_img, (10, 25))
+        for i in range(1, self.lives + 1):
+            screen.blit(self.scaled_heart_image, (i * 25, 25))
         points_img = pygame.font.Font(None, 25).render(
             f"points:{self.points}", True, (255, 50, 100)
         )
@@ -164,9 +179,12 @@ font = pygame.font.Font(None, 25)
 
 ship = Ship()
 asteroids = []
+heart = None
 background_image = pygame.image.load("space_war/images/background.png").convert_alpha()
 next_asteroid_time = random.randint(5000, 10000)
 time = pygame.time.get_ticks()
+heart_time = pygame.time.get_ticks()
+next_heart_time = random.randint(30000, 60000)
 is_game_finshed = False
 while True:
     for event in pygame.event.get():
@@ -178,6 +196,8 @@ while True:
         is_game_finshed = True
     if not is_game_finshed:
         ship.update()
+        if heart != None:
+            heart.update()
         ship.process_keys(pygame.key.get_pressed())
         for a in asteroids:
             a.update()
@@ -191,8 +211,18 @@ while True:
             next_asteroid_time = random.randint(5000, 10000)
             asteroids.append(Asteroid())
 
+        if heart_time + next_heart_time < pygame.time.get_ticks():
+            heart_time = pygame.time.get_ticks()
+            next_heart_time = random.randint(30000, 60000)
+            heart = Heart()
+
     screen.blit(background_image, (0, 0))
     for a in asteroids:
         a.draw(screen)
     ship.draw(screen)
+    if heart != None:
+        heart.draw(screen)
     pygame.display.flip()
+
+
+## heart: collision detection and dissappear
