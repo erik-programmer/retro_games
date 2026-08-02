@@ -57,7 +57,7 @@ class Asteroid:
     def check_touched_border(self):
         if self.y + Asteroid.images[0].get_height() > SCREEN_HEIGHT:
             self.showed_exploding_images = True
-            ship.minus_live()
+            ship.change_lives(-1)
 
     def draw(self, screen):
         if not self.is_dead:
@@ -89,14 +89,59 @@ class Bullet:
         screen.blit(Bullet.image, (self.x, self.y))
 
 
+class Bomb:
+    def __init__(self) -> None:
+        self.image = pygame.image.load("space_war/images/bomb.png").convert_alpha()
+        self.x = random.randint(0, SCREEN_WIDTH - self.image.get_width())
+        self.y = 0
+        self.is_caught = False
+
+    def get_rect(self):
+        return pygame.Rect(
+            self.x,
+            self.y,
+            self.image.get_width(),
+            self.image.get_height(),
+        )
+
+    def check_touched_border(self):
+        return self.y + self.image.get_height() > SCREEN_HEIGHT
+
+    def update(self):
+        self.y += 0.3
+
+    def caught(self, fn):
+        self.is_caught = True
+        fn()
+
+    def draw(self, screen):
+        screen.blit(self.image, (self.x, self.y))
+
+
 class Heart:
     def __init__(self) -> None:
         self.image = pygame.image.load("space_war/images/heart.png").convert_alpha()
         self.x = random.randint(0, SCREEN_WIDTH - self.image.get_width())
         self.y = 0
+        self.is_caught = False
+
+    def get_rect(self):
+        return pygame.Rect(
+            self.x,
+            self.y,
+            self.image.get_width(),
+            self.image.get_height(),
+        )
 
     def update(self):
         self.y += 0.3
+
+    def check_touched_border(self):
+        return self.y + self.image.get_height() > SCREEN_HEIGHT
+
+    def caught(self, fn):
+        self.is_caught = True
+        fn()
 
     def draw(self, screen):
         screen.blit(self.image, (self.x, self.y))
@@ -112,10 +157,16 @@ class Ship:
         heart_image = pygame.image.load("space_war/images/heart.png").convert_alpha()
         self.scaled_heart_image = pygame.transform.scale(heart_image, (30, 30))
         self.bullets = []
+        self.bomb_image = pygame.image.load("space_war/images/bomb.png").convert_alpha()
+        self.scaled_bomb_image = pygame.transform.scale(self.bomb_image, (30, 30))
+        self.bombs = 0
 
-    def process_event(self, event):
+    def process_event(self, event, delete_all_asteroids):
         if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
             self.bullets.append(Bullet(self.x + self.image.get_width() / 2, self.y))
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_x and self.bombs > 0:
+            self.bombs -= 1
+            delete_all_asteroids()
 
     def process_keys(self, keys):
         if keys[pygame.K_LEFT]:
@@ -126,6 +177,12 @@ class Ship:
     def change_points(self):
         self.points += 1
 
+    def change_lives(self, lives):
+        self.lives += lives
+
+    def change_bombs(self):
+        self.bombs += 1
+
     def get_rect(self):
         return pygame.Rect(
             self.x,
@@ -134,19 +191,24 @@ class Ship:
             self.image.get_height(),
         )
 
-    def minus_live(self):
-        self.lives -= 1
-
     def check_bullet_touched_asteroid(self, asteroid):
         for b in self.bullets:
             if b.get_rect().colliderect(asteroid.get_rect()):
                 b.y = -10
                 asteroid.got_hit(self.change_points)
 
+    def check_touched_heart(self, heart):
+        if heart.get_rect().colliderect(self.get_rect()):
+            heart.caught(lambda: self.change_lives(1))
+
+    def check_touched_bomb(self, bomb):
+        if bomb.get_rect().colliderect(self.get_rect()):
+            bomb.caught(lambda: self.change_bombs())
+
     def check_touched_asteroid(self, asteroid):
         if not asteroid.is_dead:
             if self.get_rect().colliderect(asteroid.get_rect()):
-                self.minus_live()
+                self.change_lives(-1)
                 asteroid.got_hit(lambda: None)
 
     def update(self):
@@ -164,6 +226,8 @@ class Ship:
             f"points:{self.points}", True, (255, 50, 100)
         )
         screen.blit(points_img, (10, 10))
+        for i in range(1, self.bombs + 1):
+            screen.blit(self.scaled_bomb_image, (i * 25, 60))
 
 
 pygame.init()
@@ -175,29 +239,45 @@ Asteroid.exploding_images = load_images("asteroid_exploding", 10)
 Asteroid.images = load_images("asteroid", 16)
 
 font = pygame.font.Font(None, 25)
+asteroids = []
+
+
+def delete_all_asteroids():
+    for a in asteroids:
+        a.got_hit(ship.change_points)
 
 
 ship = Ship()
-asteroids = []
 heart = None
+bomb = None
 background_image = pygame.image.load("space_war/images/background.png").convert_alpha()
 next_asteroid_time = random.randint(5000, 10000)
 time = pygame.time.get_ticks()
 heart_time = pygame.time.get_ticks()
 next_heart_time = random.randint(30000, 60000)
+bomb_time = pygame.time.get_ticks()
+next_bomb_time = random.randint(30000, 60000)
 is_game_finshed = False
 while True:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
-        ship.process_event(event)
+        ship.process_event(event, delete_all_asteroids)
     if ship.lives < 1:
         is_game_finshed = True
     if not is_game_finshed:
         ship.update()
         if heart != None:
+            if heart.check_touched_border():
+                heart = None
+        if bomb != None:
+            if bomb.check_touched_border():
+                bomb = None
+        if heart != None:
             heart.update()
+        if bomb != None:
+            bomb.update()
         ship.process_keys(pygame.key.get_pressed())
         for a in asteroids:
             a.update()
@@ -205,6 +285,14 @@ while True:
             ship.check_bullet_touched_asteroid(a)
             ship.check_touched_asteroid(a)
         asteroids = list(a for a in asteroids if not a.showed_exploding_images)
+        if heart != None:
+            ship.check_touched_heart(heart)
+            if heart.is_caught:
+                heart = None
+        if bomb != None:
+            ship.check_touched_bomb(bomb)
+            if bomb.is_caught:
+                bomb = None
 
         if time + next_asteroid_time < pygame.time.get_ticks():
             time = pygame.time.get_ticks()
@@ -216,13 +304,17 @@ while True:
             next_heart_time = random.randint(30000, 60000)
             heart = Heart()
 
+        if bomb_time + next_bomb_time < pygame.time.get_ticks():
+            bomb_time = pygame.time.get_ticks()
+            next_bomb_time = random.randint(30000, 60000)
+            bomb = Bomb()
+
     screen.blit(background_image, (0, 0))
     for a in asteroids:
         a.draw(screen)
     ship.draw(screen)
     if heart != None:
         heart.draw(screen)
+    if bomb != None:
+        bomb.draw(screen)
     pygame.display.flip()
-
-
-## heart: collision detection and dissappear
