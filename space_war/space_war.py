@@ -222,12 +222,24 @@ class Ship:
             b.draw(screen)
         for i in range(1, self.lives + 1):
             screen.blit(self.scaled_heart_image, (i * 25, 25))
-        points_img = pygame.font.Font(None, 25).render(
-            f"points:{self.points}", True, (255, 50, 100)
-        )
-        screen.blit(points_img, (10, 10))
         for i in range(1, self.bombs + 1):
             screen.blit(self.scaled_bomb_image, (i * 25, 60))
+
+        level = self.points // 10
+        for i in range(1, level + 1):
+            pygame.draw.rect(
+                screen,
+                (255, 0, 0),
+                (i * 28, 10, 20, 12),
+                0,  # Border thickness
+            )
+        for i in range(level + 1, 11):
+            pygame.draw.rect(
+                screen,
+                (255, 0, 0),
+                (i * 28, 10, 20, 12),
+                2,  # Border thickness
+            )
 
 
 pygame.init()
@@ -256,7 +268,7 @@ time = pygame.time.get_ticks()
 heart_time = pygame.time.get_ticks()
 next_heart_time = random.randint(30000, 60000)
 bomb_time = pygame.time.get_ticks()
-next_bomb_time = random.randint(30000, 60000)
+next_bomb_time = random.randint(70000, 110000)
 is_game_finshed = False
 while True:
     for event in pygame.event.get():
@@ -264,7 +276,7 @@ while True:
             pygame.quit()
             sys.exit()
         ship.process_event(event, delete_all_asteroids)
-    if ship.lives < 1:
+    if ship.lives < 1 or ship.points >= 100:
         is_game_finshed = True
     if not is_game_finshed:
         ship.update()
@@ -306,7 +318,7 @@ while True:
 
         if bomb_time + next_bomb_time < pygame.time.get_ticks():
             bomb_time = pygame.time.get_ticks()
-            next_bomb_time = random.randint(30000, 60000)
+            next_bomb_time = random.randint(70000, 110000)
             bomb = Bomb()
 
     screen.blit(background_image, (0, 0))
