@@ -20,8 +20,9 @@ class Asteroid:
     exploding_images: list[pygame.Surface]
     images: list[pygame.Surface]
 
-    def __init__(self) -> None:
+    def __init__(self, points) -> None:
         self.y = 0
+        self.speed = 0.3 if points < 10 else 0.4
         self.is_dead = False
         self.showed_exploding_images = False
         self.image_number = 0
@@ -52,7 +53,7 @@ class Asteroid:
             self.image_number = 0
             if self.is_dead:
                 self.showed_exploding_images = True
-        self.y += 0.3
+        self.y += self.speed
 
     def check_touched_border(self):
         if self.y + Asteroid.images[0].get_height() > SCREEN_HEIGHT:
@@ -271,12 +272,15 @@ bomb_time = pygame.time.get_ticks()
 next_bomb_time = random.randint(70000, 110000)
 is_game_finshed = False
 while True:
+    points = ship.points
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
         ship.process_event(event, delete_all_asteroids)
-    if ship.lives < 1 or ship.points >= 100:
+    if ship.lives < 1:
+        is_game_finshed = True
+    if points >= 100:
         is_game_finshed = True
     if not is_game_finshed:
         ship.update()
@@ -308,8 +312,15 @@ while True:
 
         if time + next_asteroid_time < pygame.time.get_ticks():
             time = pygame.time.get_ticks()
-            next_asteroid_time = random.randint(5000, 10000)
-            asteroids.append(Asteroid())
+            if points < 10:
+                next_asteroid_time = random.randint(5000, 10000)
+                asteroids.append(Asteroid(points))
+            if points >= 10 and points < 20:
+                next_asteroid_time = random.randint(5000, 10000)
+                asteroids.append(Asteroid(points))
+            if points > 19:
+                next_asteroid_time = random.randint(3000, 5000)
+                asteroids.append(Asteroid(points))
 
         if heart_time + next_heart_time < pygame.time.get_ticks():
             heart_time = pygame.time.get_ticks()
@@ -329,4 +340,10 @@ while True:
         heart.draw(screen)
     if bomb != None:
         bomb.draw(screen)
+    if points >= 100:
+        win_img = font.render(f"YOU WON!", True, (0, 255, 0))
+        screen.blit(win_img, (SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2))
+    if ship.lives < 1:
+        loose_img = font.render(f"GAME OVER :-(", True, (255, 0, 0))
+        screen.blit(loose_img, (SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2))
     pygame.display.flip()
