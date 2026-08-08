@@ -26,7 +26,7 @@ class Asteroid:
         self.is_dead = False
         self.showed_exploding_images = False
         self.image_number = 0
-        self.x = random.randint(0, SCREEN_WIDTH - self.images[0].get_width())
+        self.x = random.randint(0, SCREEN_WIDTH - Asteroid.images[0].get_width())
         self.timer = pygame.time.get_ticks()
         self.max_image_number = 15
 
@@ -65,6 +65,42 @@ class Asteroid:
             screen.blit(Asteroid.images[self.image_number], (self.x, self.y))
         else:
             screen.blit(Asteroid.exploding_images[self.image_number], (self.x, self.y))
+
+
+class Phantom:
+
+    image: pygame.Surface
+
+    def __init__(self, points) -> None:
+        self.y = 0
+        self.speed = 0.3 if points < 40 and points < 50 else 0.4
+        self.is_dead = False
+        self.x = random.randint(0, SCREEN_WIDTH - Phantom.image.get_width())
+        self.timer = pygame.time.get_ticks()
+
+    def get_rect(self):
+        return pygame.Rect(
+            self.x,
+            self.y,
+            Phantom.image.get_width(),
+            Phantom.image.get_height(),
+        )
+
+    def got_hit(self, change_points_fn):
+        if not self.is_dead:
+            self.is_dead = True
+            change_points_fn()
+
+    def update(self):
+        self.y += self.speed
+
+    def check_touched_border(self):
+        if self.y + Phantom.image.get_height() > SCREEN_HEIGHT and not self.is_dead:
+            self.is_dead = True
+            ship.change_lives(-1)
+
+    def draw(self, screen):
+        screen.blit(Phantom.image, (self.x, self.y))
 
 
 class Bullet:
@@ -162,12 +198,12 @@ class Ship:
         self.scaled_bomb_image = pygame.transform.scale(self.bomb_image, (30, 30))
         self.bombs = 0
 
-    def process_event(self, event, delete_all_asteroids):
+    def process_event(self, event, delete_all_enemies):
         if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
             self.bullets.append(Bullet(self.x + self.image.get_width() / 2, self.y))
         if event.type == pygame.KEYDOWN and event.key == pygame.K_x and self.bombs > 0:
             self.bombs -= 1
-            delete_all_asteroids()
+            delete_all_enemies()
 
     def process_keys(self, keys):
         if keys[pygame.K_LEFT]:
@@ -198,6 +234,12 @@ class Ship:
                 b.y = -10
                 asteroid.got_hit(self.change_points)
 
+    def check_bullet_touched_phantom(self, phantom):
+        for b in self.bullets:
+            if b.get_rect().colliderect(phantom.get_rect()):
+                b.y = -10
+                phantom.got_hit(self.change_points)
+
     def check_touched_heart(self, heart):
         if heart.get_rect().colliderect(self.get_rect()):
             heart.caught(lambda: self.change_lives(1))
@@ -211,6 +253,12 @@ class Ship:
             if self.get_rect().colliderect(asteroid.get_rect()):
                 self.change_lives(-1)
                 asteroid.got_hit(lambda: None)
+
+    def check_touched_phantom(self, phantom):
+        if not phantom.is_dead:
+            if self.get_rect().colliderect(phantom.get_rect()):
+                self.change_lives(-1)
+                phantom.got_hit(lambda: None)
 
     def update(self):
         self.bullets = list(b for b in self.bullets if b.y > 0)
@@ -250,14 +298,18 @@ pygame.display.set_caption("Space war")
 Bullet.image = pygame.image.load("space_war/images/ship_shot.png").convert_alpha()
 Asteroid.exploding_images = load_images("asteroid_exploding", 10)
 Asteroid.images = load_images("asteroid", 16)
+Phantom.image = pygame.image.load("space_war/images/phantom.png")
 
 font = pygame.font.Font(None, 25)
 asteroids = []
+phantoms = []
 
 
-def delete_all_asteroids():
+def delete_all_enemies():
     for a in asteroids:
         a.got_hit(ship.change_points)
+    for p in phantoms:
+        p.got_hit(ship.change_points)
 
 
 ship = Ship()
@@ -266,18 +318,23 @@ bomb = None
 background_image = pygame.image.load("space_war/images/background.png").convert_alpha()
 next_asteroid_time = random.randint(5000, 10000)
 time = pygame.time.get_ticks()
+next_phantom_time = random.randint(5000, 10000)
+phantom_time = pygame.time.get_ticks()
 heart_time = pygame.time.get_ticks()
+win_img_height = 17
+win_img_width = 90
 next_heart_time = random.randint(30000, 60000)
 bomb_time = pygame.time.get_ticks()
 next_bomb_time = random.randint(70000, 110000)
 is_game_finshed = False
+angle = 0
 while True:
     points = ship.points
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
-        ship.process_event(event, delete_all_asteroids)
+        ship.process_event(event, delete_all_enemies)
     if ship.lives < 1:
         is_game_finshed = True
     if points >= 100:
@@ -300,7 +357,14 @@ while True:
             a.check_touched_border()
             ship.check_bullet_touched_asteroid(a)
             ship.check_touched_asteroid(a)
+        for p in phantoms:
+            p.update()
+            p.check_touched_border()
+            ship.check_bullet_touched_phantom(p)
+            ship.check_touched_phantom(p)
+
         asteroids = list(a for a in asteroids if not a.showed_exploding_images)
+        phantoms = list(p for p in phantoms if not p.is_dead)
         if heart != None:
             ship.check_touched_heart(heart)
             if heart.is_caught:
@@ -322,6 +386,18 @@ while True:
                 next_asteroid_time = random.randint(3000, 5000)
                 asteroids.append(Asteroid(points))
 
+        if points >= 40 and phantom_time + next_phantom_time < pygame.time.get_ticks():
+            phantom_time = pygame.time.get_ticks()
+            if points >= 40 and points < 50:
+                next_phantom_time = random.randint(5000, 10000)
+                phantoms.append(Phantom(points))
+            if points >= 50 and points < 60:
+                next_phantom_time = random.randint(5000, 10000)
+                phantoms.append(Phantom(points))
+            if points > 60:
+                next_phantom_time = random.randint(3000, 5000)
+                phantoms.append(Phantom(points))
+
         if heart_time + next_heart_time < pygame.time.get_ticks():
             heart_time = pygame.time.get_ticks()
             next_heart_time = random.randint(30000, 60000)
@@ -335,14 +411,25 @@ while True:
     screen.blit(background_image, (0, 0))
     for a in asteroids:
         a.draw(screen)
+    for p in phantoms:
+        p.draw(screen)
     ship.draw(screen)
     if heart != None:
         heart.draw(screen)
     if bomb != None:
         bomb.draw(screen)
     if points >= 100:
+        if angle < 361:
+            win_img_height += 1
+            win_img_width += 1
+            angle += 1
         win_img = font.render(f"YOU WON!", True, (0, 255, 0))
-        screen.blit(win_img, (SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2))
+        scaled_win_image = pygame.transform.scale(
+            win_img, (win_img_width, win_img_height)
+        )
+        rotated_img = pygame.transform.rotate(scaled_win_image, angle)
+        rect = rotated_img.get_rect(center=(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2))
+        screen.blit(rotated_img, rect)
     if ship.lives < 1:
         loose_img = font.render(f"GAME OVER :-(", True, (255, 0, 0))
         screen.blit(loose_img, (SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2))
