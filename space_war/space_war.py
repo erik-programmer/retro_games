@@ -6,10 +6,10 @@ SCREEN_HEIGHT = 800
 SCREEN_WIDTH = 1200
 
 
-def load_images(thing, limit):
+def load_images(image_folder, obj, limit):
     return list(
         pygame.image.load(
-            f"space_war/images/asteroid/{thing}_{i:02d}.png"
+            f"space_war/images/{image_folder}/{obj}_{i:02d}.png"
         ).convert_alpha()
         for i in range(0, limit)
     )
@@ -70,14 +70,16 @@ class Asteroid:
 class Phantom:
 
     image: pygame.Surface
+    exploding_images: list[pygame.Surface]
 
     def __init__(self, points) -> None:
+        self.showed_exploding_images = False
         self.y = 0
         self.speed = 0.3 if points < 40 and points < 50 else 0.4
         self.is_dead = False
         self.x = random.randint(0, SCREEN_WIDTH - Phantom.image.get_width())
         self.timer = pygame.time.get_ticks()
-        self.is_visable = True
+        self.is_visible = True
 
     def get_rect(self):
         return pygame.Rect(
@@ -89,23 +91,40 @@ class Phantom:
 
     def got_hit(self, change_points_fn):
         if not self.is_dead:
+            self.is_visible = True
             self.is_dead = True
+            self.exploding_timer = pygame.time.get_ticks()
+            self.exploding_image_number = 0
             change_points_fn()
 
     def update(self):
-        self.y += self.speed
-        if self.timer + 1000 < pygame.time.get_ticks():
-            self.timer = pygame.time.get_ticks()
-            self.is_visable = not self.is_visable
+        if self.is_dead:
+            if self.exploding_timer + 50 < pygame.time.get_ticks():
+                if 8 > self.exploding_image_number:
+                    self.exploding_image_number += 1
+                    self.exploding_timer = pygame.time.get_ticks()
+                else:
+                    self.showed_exploding_images = True
+        else:
+            self.y += self.speed
+            if self.timer + 1000 < pygame.time.get_ticks():
+                self.timer = pygame.time.get_ticks()
+                self.is_visible = not self.is_visible
 
     def check_touched_border(self):
         if self.y + Phantom.image.get_height() > SCREEN_HEIGHT and not self.is_dead:
-            self.is_dead = True
+            self.got_hit(lambda: None)
             ship.change_lives(-1)
 
     def draw(self, screen):
-        if self.is_visable:
-            screen.blit(Phantom.image, (self.x, self.y))
+        if self.is_visible:
+            if not self.is_dead:
+                screen.blit(Phantom.image, (self.x, self.y))
+            else:
+                screen.blit(
+                    Phantom.exploding_images[self.exploding_image_number],
+                    (self.x, self.y),
+                )
 
 
 class Bullet:
@@ -191,7 +210,7 @@ class Heart:
 
 class Ship:
     def __init__(self) -> None:
-        self.points = 40
+        self.points = 0
         self.lives = 3
         self.image = pygame.image.load("space_war/images/ship.png").convert_alpha()
         self.x = SCREEN_WIDTH / 2 - self.image.get_width() / 2
@@ -240,7 +259,7 @@ class Ship:
                 asteroid.got_hit(self.change_points)
 
     def check_bullet_touched_phantom(self, phantom):
-        if phantom.is_visable:
+        if phantom.is_visible:
             for b in self.bullets:
                 if b.get_rect().colliderect(phantom.get_rect()):
                     b.y = -10
@@ -302,9 +321,10 @@ screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Space war")
 
 Bullet.image = pygame.image.load("space_war/images/ship_shot.png").convert_alpha()
-Asteroid.exploding_images = load_images("asteroid_exploding", 10)
-Asteroid.images = load_images("asteroid", 16)
+Asteroid.exploding_images = load_images("asteroid", "asteroid_exploding", 10)
+Asteroid.images = load_images("asteroid", "asteroid", 16)
 Phantom.image = pygame.image.load("space_war/images/phantom/phantom.png")
+Phantom.exploding_images = load_images("phantom", "phantom_exploding", 9)
 
 font = pygame.font.Font(None, 25)
 asteroids = []
@@ -372,7 +392,7 @@ while True:
             ship.check_touched_phantom(p)
 
         asteroids = list(a for a in asteroids if not a.showed_exploding_images)
-        phantoms = list(p for p in phantoms if not p.is_dead)
+        phantoms = list(p for p in phantoms if not p.showed_exploding_images)
         if heart != None:
             ship.check_touched_heart(heart)
             if heart.is_caught:
