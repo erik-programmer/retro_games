@@ -70,14 +70,21 @@ class Asteroid:
 class Phantom:
 
     image: pygame.Surface
+    advanced_image: pygame.Surface
     exploding_images: list[pygame.Surface]
 
-    def __init__(self, points) -> None:
+    def __init__(self, points, is_advanced) -> None:
+        self.is_advanced = is_advanced
         self.showed_exploding_images = False
         self.y = 0
-        self.speed = 0.3 if points < 40 else 0.4
+        if not is_advanced:
+            self.speed = 0.3 if points < 40 else 0.4
+            self.image = Phantom.image
+        else:
+            self.image = Phantom.advanced_image
+            self.speed = 0.3 if points < 70 else 0.4
         self.is_dead = False
-        self.x = random.randint(0, SCREEN_WIDTH - Phantom.image.get_width())
+        self.x = random.randint(0, SCREEN_WIDTH - self.image.get_width())
         self.timer = pygame.time.get_ticks()
         self.is_visible = True
 
@@ -85,8 +92,8 @@ class Phantom:
         return pygame.Rect(
             self.x,
             self.y,
-            Phantom.image.get_width(),
-            Phantom.image.get_height(),
+            self.image.get_width(),
+            self.image.get_height(),
         )
 
     def got_hit(self, change_points_fn):
@@ -112,14 +119,14 @@ class Phantom:
                 self.is_visible = not self.is_visible
 
     def check_touched_border(self):
-        if self.y + Phantom.image.get_height() > SCREEN_HEIGHT and not self.is_dead:
+        if self.y + self.image.get_height() > SCREEN_HEIGHT and not self.is_dead:
             self.got_hit(lambda: None)
             ship.change_lives(-1)
 
     def draw(self, screen):
         if self.is_visible:
             if not self.is_dead:
-                screen.blit(Phantom.image, (self.x, self.y))
+                screen.blit(self.image, (self.x, self.y))
             else:
                 screen.blit(
                     Phantom.exploding_images[self.exploding_image_number],
@@ -210,7 +217,7 @@ class Heart:
 
 class Ship:
     def __init__(self) -> None:
-        self.points = 0
+        self.points = 60
         self.lives = 3
         self.image = pygame.image.load("space_war/images/ship.png").convert_alpha()
         self.x = SCREEN_WIDTH / 2 - self.image.get_width() / 2
@@ -324,6 +331,9 @@ Bullet.image = pygame.image.load("space_war/images/ship_shot.png").convert_alpha
 Asteroid.exploding_images = load_images("asteroid", "asteroid_exploding", 10)
 Asteroid.images = load_images("asteroid", "asteroid", 16)
 Phantom.image = pygame.image.load("space_war/images/phantom/phantom.png")
+Phantom.advanced_image = pygame.image.load(
+    "space_war/images/phantom/phantom_advanced.png"
+)
 Phantom.exploding_images = load_images("phantom", "phantom_exploding", 9)
 
 font = pygame.font.Font(None, 25)
@@ -346,6 +356,8 @@ next_asteroid_time = random.randint(5000, 10000)
 time = pygame.time.get_ticks()
 next_phantom_time = random.randint(5000, 10000)
 phantom_time = pygame.time.get_ticks()
+next_advanced_phantom_time = random.randint(5000, 10000)
+advanced_phantom_time = pygame.time.get_ticks()
 heart_time = pygame.time.get_ticks()
 win_img_height = 17
 win_img_width = 90
@@ -418,13 +430,25 @@ while True:
             phantom_time = pygame.time.get_ticks()
             if points >= 40 and points < 50:
                 next_phantom_time = random.randint(5000, 10000)
-                phantoms.append(Phantom(points))
+                phantoms.append(Phantom(points, False))
             if points >= 50 and points < 60:
                 next_phantom_time = random.randint(5000, 10000)
-                phantoms.append(Phantom(points))
-            if points > 60:
+                phantoms.append(Phantom(points, False))
+            if points >= 60:
                 next_phantom_time = random.randint(3000, 5000)
-                phantoms.append(Phantom(points))
+                phantoms.append(Phantom(points, False))
+
+            # advanced
+        if advanced_phantom_time + next_advanced_phantom_time < pygame.time.get_ticks():
+            advanced_phantom_time = pygame.time.get_ticks()
+            if points >= 60 and points < 70:
+                next_advanced_phantom_time = random.randint(5000, 10000)
+                phantoms.append(Phantom(points, True))
+            if points >= 70 and points < 80:
+                next_advanced_phantom_time = random.randint(5000, 10000)
+                phantoms.append(Phantom(points, True))
+            if points >= 80:
+                phantoms.append(Phantom(points, True))
 
         if heart_time + next_heart_time < pygame.time.get_ticks():
             heart_time = pygame.time.get_ticks()
