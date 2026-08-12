@@ -75,7 +75,7 @@ class Phantom:
     def __init__(self, points) -> None:
         self.showed_exploding_images = False
         self.y = 0
-        self.speed = 0.3 if points < 40 and points < 50 else 0.4
+        self.speed = 0.3 if points < 40 else 0.4
         self.is_dead = False
         self.x = random.randint(0, SCREEN_WIDTH - Phantom.image.get_width())
         self.timer = pygame.time.get_ticks()
