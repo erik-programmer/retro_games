@@ -67,6 +67,32 @@ class Asteroid:
             screen.blit(Asteroid.exploding_images[self.image_number], (self.x, self.y))
 
 
+class PhantomeBullet:
+    image: pygame.Surface
+
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+    def update(self):
+        self.y += 0.5
+
+    def get_rect(self):
+        return pygame.Rect(
+            self.x,
+            self.y,
+            self.image.get_width(),
+            self.image.get_height(),
+        )
+
+    def got_hit(self, change_lives_fn):
+        self.y = SCREEN_HEIGHT + 1
+        change_lives_fn()
+
+    def draw(self, screen):
+        screen.blit(PhantomeBullet.image, (self.x, self.y))
+
+
 class Phantom:
 
     image: pygame.Surface
@@ -83,9 +109,11 @@ class Phantom:
         else:
             self.image = Phantom.advanced_image
             self.speed = 0.3 if points < 70 else 0.4
+        self.bullets = []
         self.is_dead = False
         self.x = random.randint(0, SCREEN_WIDTH - self.image.get_width())
         self.timer = pygame.time.get_ticks()
+        self.bullet_timer = 0
         self.is_visible = True
 
     def get_rect(self):
@@ -105,6 +133,9 @@ class Phantom:
             change_points_fn()
 
     def update(self):
+        self.check_bullet_touched_border()
+        for b in self.bullets:
+            b.update()
         if self.is_dead:
             if self.exploding_timer + 50 < pygame.time.get_ticks():
                 if 8 > self.exploding_image_number:
@@ -118,10 +149,25 @@ class Phantom:
                 self.timer = pygame.time.get_ticks()
                 self.is_visible = not self.is_visible
 
+            if self.bullet_timer + 5000 < pygame.time.get_ticks():
+                if self.is_advanced:
+                    self.bullets.append(
+                        PhantomeBullet(
+                            self.x
+                            + self.image.get_width() / 2
+                            - PhantomeBullet.image.get_width() / 2,
+                            self.y + self.image.get_height(),
+                        )
+                    )
+                self.bullet_timer = pygame.time.get_ticks()
+
     def check_touched_border(self):
         if self.y + self.image.get_height() > SCREEN_HEIGHT and not self.is_dead:
             self.got_hit(lambda: None)
             ship.change_lives(-1)
+
+    def check_bullet_touched_border(self):
+        self.bullets = list(b for b in self.bullets if b.y < SCREEN_HEIGHT)
 
     def draw(self, screen):
         if self.is_visible:
@@ -132,6 +178,8 @@ class Phantom:
                     Phantom.exploding_images[self.exploding_image_number],
                     (self.x, self.y),
                 )
+        for b in self.bullets:
+            b.draw(screen)
 
 
 class Bullet:
@@ -216,8 +264,9 @@ class Heart:
 
 
 class Ship:
+
     def __init__(self) -> None:
-        self.points = 60
+        self.points = 0
         self.lives = 3
         self.image = pygame.image.load("space_war/images/ship.png").convert_alpha()
         self.x = SCREEN_WIDTH / 2 - self.image.get_width() / 2
@@ -280,6 +329,10 @@ class Ship:
         if bomb.get_rect().colliderect(self.get_rect()):
             bomb.caught(lambda: self.change_bombs())
 
+    def check_touched_phantom_bullet(self, phantom_bullet):
+        if phantom_bullet.get_rect().colliderect(self.get_rect()):
+            phantom_bullet.got_hit(lambda: self.change_lives(-1))
+
     def check_touched_asteroid(self, asteroid):
         if not asteroid.is_dead:
             if self.get_rect().colliderect(asteroid.get_rect()):
@@ -291,6 +344,8 @@ class Ship:
             if self.get_rect().colliderect(phantom.get_rect()):
                 self.change_lives(-1)
                 phantom.got_hit(lambda: None)
+            for pb in phantom.bullets:
+                self.check_touched_phantom_bullet(pb)
 
     def update(self):
         self.bullets = list(b for b in self.bullets if b.y > 0)
@@ -335,7 +390,7 @@ Phantom.advanced_image = pygame.image.load(
     "space_war/images/phantom/phantom_advanced.png"
 )
 Phantom.exploding_images = load_images("phantom", "phantom_exploding", 9)
-
+PhantomeBullet.image = pygame.image.load("space_war/images/phantom/phantom_shot.png")
 font = pygame.font.Font(None, 25)
 asteroids = []
 phantoms = []
