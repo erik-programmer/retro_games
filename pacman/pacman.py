@@ -20,7 +20,7 @@ class Enemy:
         self.y = SCREEN_HEIGHT // 2
         self.timer = pygame.time.get_ticks()
         self.image_number = 0
-        self.directoin = pygame.K_RIGHT
+        self.direction = pygame.K_RIGHT
         self.images = {
             pygame.K_DOWN: [
                 pygame.image.load(f"pacman/images/monster/{color}_down_0.png"),
@@ -40,18 +40,66 @@ class Enemy:
             ],
         }
 
-    def update(self):
-        if self.directoin == pygame.K_RIGHT:
-            self.x += 0.25
-            if self.timer + 300 < pygame.time.get_ticks():
-                if self.image_number == 0:
-                    self.image_number = 1
-                else:
-                    self.image_number = 0
-                self.timer = pygame.time.get_ticks()
+    def get_rect(self):
+        return pygame.Rect(
+            self.x,
+            self.y,
+            self.images[self.direction][self.image_number].get_width(),
+            self.images[self.direction][self.image_number].get_height(),
+        )
+
+    def animate(self):
+        if self.timer + 300 < pygame.time.get_ticks():
+            if self.image_number == 0:
+                self.image_number = 1
+            else:
+                self.image_number = 0
+            self.timer = pygame.time.get_ticks()
+
+    def get_possible_directions(self, has_wall, direction_to_check):
+        directions = []
+        if not has_wall:
+            if self.direction == direction_to_check:
+                directions.append(direction_to_check)
+                directions.append(direction_to_check)
+            directions.append(direction_to_check)
+        return directions
+
+    def update(self, fn):
+        if self.x % TILE_SIZE == 0 and self.y % TILE_SIZE == 0:
+            directions = []
+            directions += self.get_possible_directions(
+                fn(int(self.y // TILE_SIZE), int(self.x // TILE_SIZE - 1)),
+                pygame.K_LEFT,
+            )
+            directions += self.get_possible_directions(
+                fn(int(self.y // TILE_SIZE), int(self.x // TILE_SIZE + 1)),
+                pygame.K_RIGHT,
+            )
+            directions += self.get_possible_directions(
+                fn(int(self.y // TILE_SIZE + 1), int(self.x // TILE_SIZE)),
+                pygame.K_DOWN,
+            )
+            directions += self.get_possible_directions(
+                fn(int(self.y // TILE_SIZE - 1), int(self.x // TILE_SIZE)),
+                pygame.K_UP,
+            )
+            self.direction = random.choice(directions)
+        if self.direction == pygame.K_RIGHT:
+            self.x += 1
+            self.animate()
+        elif self.direction == pygame.K_LEFT:
+            self.x -= 1
+            self.animate()
+        elif self.direction == pygame.K_DOWN:
+            self.y += 1
+            self.animate()
+        elif self.direction == pygame.K_UP:
+            self.y -= 1
+            self.animate()
 
     def draw(self, screen):
-        screen.blit(self.images[self.directoin][self.image_number], (self.x, self.y))
+        screen.blit(self.images[self.direction][self.image_number], (self.x, self.y))
 
 
 class Maze:
@@ -995,6 +1043,25 @@ class Pacman:
     def change_points(self):
         self.points += 1
 
+    def get_rect(self):
+        if self.direction != None:
+            return pygame.Rect(
+                self.x,
+                self.y,
+                self.images[self.direction][self.image_number].get_width(),
+                self.images[self.direction][self.image_number].get_height(),
+            )
+        else:
+            return pygame.Rect(
+                self.x,
+                self.y,
+                self.images[pygame.K_RIGHT][1].get_width(),
+                self.images[pygame.K_RIGHT][self.image_number].get_height(),
+            )
+
+    def checked_touched_enemy(self, enemy):
+        return self.get_rect().colliderect(enemy.get_rect())
+
     def process_keys(self, keys, points_callbsck_fn, check_touched_wall_fn):
         touched_wall = False
         if self.direction == pygame.K_LEFT or keys[pygame.K_LEFT]:
@@ -1012,7 +1079,7 @@ class Pacman:
                     ):
                         touched_wall = True
                 if not touched_wall:
-                    self.x -= 0.25
+                    self.x -= 1
                     if self.timer + 200 < pygame.time.get_ticks():
                         self.image_number = 1 if self.image_number == 0 else 0
                         self.timer = pygame.time.get_ticks()
@@ -1035,7 +1102,7 @@ class Pacman:
                     ):
                         touched_wall = True
                 if not touched_wall:
-                    self.x += 0.25
+                    self.x += 1
                     if self.timer + 200 < pygame.time.get_ticks():
                         self.image_number = 1 if self.image_number == 0 else 0
                         self.timer = pygame.time.get_ticks()
@@ -1057,7 +1124,7 @@ class Pacman:
                     ):
                         touched_wall = True
                 if not touched_wall:
-                    self.y -= 0.25
+                    self.y -= 1
                     if self.timer + 200 < pygame.time.get_ticks():
                         self.image_number = 1 if self.image_number == 0 else 0
                         self.timer = pygame.time.get_ticks()
@@ -1079,7 +1146,7 @@ class Pacman:
                     ):
                         touched_wall = True
                 if not touched_wall:
-                    self.y += 0.25
+                    self.y += 1
                     if self.timer + 200 < pygame.time.get_ticks():
                         self.image_number = 1 if self.image_number == 0 else 0
                         self.timer = pygame.time.get_ticks()
@@ -1110,26 +1177,27 @@ enemies = [
     Enemy(15 * TILE_SIZE, "rosa"),
 ]
 maze = Maze()
+should_enemies_move = True
 while True:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
     screen.fill((0, 0, 0))
-    # for i in range(0, SCREEN_WIDTH // TILE_SIZE):
-    #     for j in range(0, SCREEN_HEIGHT // TILE_SIZE):
-    #         pygame.draw.rect(
-    #             screen,
-    #             (255, 255, 255),
-    #             (i * TILE_SIZE, j * TILE_SIZE, TILE_SIZE, TILE_SIZE),
-    #             1,
-    #         )
+
+    if should_enemies_move:
+        for enemy in enemies:
+            enemy.update(maze.check_is_wall)
+
     for enemy in enemies:
-        enemy.update()
-        enemy.draw(screen)
+        if pacman.checked_touched_enemy(enemy) and should_enemies_move:
+            should_enemies_move = False
+
     pacman.process_keys(
         pygame.key.get_pressed(), maze.on_pacman_changed_cell, maze.check_is_wall
     )
+    for enemy in enemies:
+        enemy.draw(screen)
     maze.draw(screen)
     pacman.draw(screen)
 
