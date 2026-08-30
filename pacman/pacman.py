@@ -86,16 +86,16 @@ class Enemy:
             )
             self.direction = random.choice(directions)
         if self.direction == pygame.K_RIGHT:
-            self.x += 1
+            self.x += 0.5
             self.animate()
         elif self.direction == pygame.K_LEFT:
-            self.x -= 1
+            self.x -= 0.5
             self.animate()
         elif self.direction == pygame.K_DOWN:
-            self.y += 1
+            self.y += 0.5
             self.animate()
         elif self.direction == pygame.K_UP:
-            self.y -= 1
+            self.y -= 0.5
             self.animate()
 
     def draw(self, screen):
@@ -1111,11 +1111,11 @@ class Pacman:
         if self.is_dead:
             return
 
-        touched_wall = False
         if self.direction == pygame.K_LEFT or keys[pygame.K_LEFT]:
             if (
                 self.x % TILE_SIZE == 0 and self.y % TILE_SIZE == 0
             ) or self.direction == pygame.K_LEFT:
+                touched_wall = False
                 if self.x % TILE_SIZE == 0 and self.y % TILE_SIZE == 0:
                     points_callbsck_fn(
                         int(self.y // TILE_SIZE),
@@ -1127,18 +1127,17 @@ class Pacman:
                     ):
                         touched_wall = True
                 if not touched_wall:
-                    self.x -= 1
+                    self.x -= 0.5
+                    self.direction = pygame.K_LEFT
                     if self.timer + 200 < pygame.time.get_ticks():
                         self.image_number = 1 if self.image_number == 0 else 0
                         self.timer = pygame.time.get_ticks()
-                else:
-                    self.image_number = 1
-                self.direction = pygame.K_LEFT
 
         if self.direction == pygame.K_RIGHT or keys[pygame.K_RIGHT]:
             if (
                 self.x % TILE_SIZE == 0 and self.y % TILE_SIZE == 0
             ) or self.direction == pygame.K_RIGHT:
+                touched_wall = False
                 if self.x % TILE_SIZE == 0 and self.y % TILE_SIZE == 0:
                     points_callbsck_fn(
                         int(self.y // TILE_SIZE),
@@ -1150,17 +1149,17 @@ class Pacman:
                     ):
                         touched_wall = True
                 if not touched_wall:
-                    self.x += 1
+                    self.x += 0.5
+                    self.direction = pygame.K_RIGHT
                     if self.timer + 200 < pygame.time.get_ticks():
                         self.image_number = 1 if self.image_number == 0 else 0
                         self.timer = pygame.time.get_ticks()
-                else:
-                    self.image_number = 1
-                self.direction = pygame.K_RIGHT
+
         if self.direction == pygame.K_UP or keys[pygame.K_UP]:
             if (
                 self.x % TILE_SIZE == 0 and self.y % TILE_SIZE == 0
             ) or self.direction == pygame.K_UP:
+                touched_wall = False
                 if self.x % TILE_SIZE == 0 and self.y % TILE_SIZE == 0:
                     points_callbsck_fn(
                         int(self.y // TILE_SIZE),
@@ -1172,17 +1171,17 @@ class Pacman:
                     ):
                         touched_wall = True
                 if not touched_wall:
-                    self.y -= 1
+                    self.y -= 0.5
+                    self.direction = pygame.K_UP
                     if self.timer + 200 < pygame.time.get_ticks():
                         self.image_number = 1 if self.image_number == 0 else 0
                         self.timer = pygame.time.get_ticks()
-                else:
-                    self.image_number = 1
-                self.direction = pygame.K_UP
+
         if self.direction == pygame.K_DOWN or keys[pygame.K_DOWN]:
             if (
                 self.x % TILE_SIZE == 0 and self.y % TILE_SIZE == 0
             ) or self.direction == pygame.K_DOWN:
+                touched_wall = False
                 if self.x % TILE_SIZE == 0 and self.y % TILE_SIZE == 0:
                     points_callbsck_fn(
                         int(self.y // TILE_SIZE),
@@ -1194,13 +1193,11 @@ class Pacman:
                     ):
                         touched_wall = True
                 if not touched_wall:
-                    self.y += 1
+                    self.y += 0.5
+                    self.direction = pygame.K_DOWN
                     if self.timer + 200 < pygame.time.get_ticks():
                         self.image_number = 1 if self.image_number == 0 else 0
                         self.timer = pygame.time.get_ticks()
-                else:
-                    self.image_number = 1
-                self.direction = pygame.K_DOWN
 
     def draw(self, screen):
         info_image = pygame.font.Font(None, 25).render(
