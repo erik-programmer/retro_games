@@ -27,7 +27,7 @@ class Hero:
         self.lives = 3
         self.blink_counter = -1
         self.gems = gems
-        self.star_type=StarType.BASIC
+        self.star_type = StarType.BASIC
         if self.gems >= 20:
             self.star_type = StarType.ADVANCED
         if self.gems >= 40:
@@ -128,11 +128,23 @@ class Hero:
             and (self.points // 5 - self.stars_spend) > 0
         ):
             self.stars.append(
-                Star(self.x, self.y, self.star_image, self.movement_direction, self.star_type)
+                Star(
+                    self.x,
+                    self.y,
+                    self.star_image,
+                    self.movement_direction,
+                    self.star_type,
+                )
             )
-            if self.star_type==StarType.ADVANCED:
+            if self.star_type == StarType.ADVANCED:
                 self.stars.append(
-                    Star(self.x, self.y, self.star_image, self.movement_direction, StarType.BASIC)
+                    Star(
+                        self.x,
+                        self.y,
+                        self.star_image,
+                        self.movement_direction,
+                        StarType.BASIC,
+                    )
                 )
             self.stars_spend += 1
 
@@ -153,8 +165,8 @@ class Hero:
         collision_rect = self.image.get_rect(center=(self.x, self.y))
         collision_rect.x += 10
         collision_rect.width -= 20
-        collision_rect.y += 1
-        collision_rect.height -= 2
+        collision_rect.y += 2
+        collision_rect.height -= 4
 
         return collision_rect
 

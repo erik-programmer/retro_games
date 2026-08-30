@@ -16,7 +16,6 @@ def load_images(image_folder, obj, limit):
 
 
 class Asteroid:
-
     exploding_images: list[pygame.Surface]
     images: list[pygame.Surface]
 
@@ -94,7 +93,6 @@ class PhantomeBullet:
 
 
 class Phantom:
-
     image: pygame.Surface
     advanced_image: pygame.Surface
     exploding_images: list[pygame.Surface]
@@ -183,7 +181,6 @@ class Phantom:
 
 
 class Bullet:
-
     image: pygame.Surface
 
     def __init__(self, x, y):
@@ -264,7 +261,6 @@ class Heart:
 
 
 class Ship:
-
     def __init__(self) -> None:
         self.points = 0
         self.lives = 3

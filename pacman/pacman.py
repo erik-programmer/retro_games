@@ -958,6 +958,13 @@ class Maze:
     def check_is_wall(self, row, culuomn):
         return self.cells[row][culuomn] == MazeCellType.WALL
 
+    def is_empty(self):
+        for r in self.cells:
+            for c in r:
+                if c == MazeCellType.POINT:
+                    return False
+        return True
+
     def draw(self, screen):
         for ic, row in enumerate(self.cells):
             for ir, c in enumerate(row):
@@ -1015,7 +1022,9 @@ class Maze:
 
 class Pacman:
     def __init__(self) -> None:
+        self.is_dead = False
         self.points = 0
+        self.lives = 3
         self.images = {
             pygame.K_RIGHT: [
                 pygame.image.load("pacman/images/pacman/pacman_right_0.png"),
@@ -1033,15 +1042,37 @@ class Pacman:
                 pygame.image.load("pacman/images/pacman/pacman_up_0.png"),
                 pygame.image.load("pacman/images/pacman/pacman_up_1.png"),
             ],
+            "dead_images": [
+                pygame.image.load("pacman/images/pacman/pacman_dead_0.png"),
+                pygame.image.load("pacman/images/pacman/pacman_dead_1.png"),
+                pygame.image.load("pacman/images/pacman/pacman_dead_2.png"),
+                pygame.image.load("pacman/images/pacman/pacman_dead_3.png"),
+                pygame.image.load("pacman/images/pacman/pacman_dead_4.png"),
+                pygame.image.load("pacman/images/pacman/pacman_dead_5.png"),
+                pygame.image.load("pacman/images/pacman/pacman_dead_6.png"),
+                pygame.image.load("pacman/images/pacman/pacman_dead_7.png"),
+                pygame.image.load("pacman/images/pacman/pacman_dead_8.png"),
+                pygame.image.load("pacman/images/pacman/pacman_dead_9.png"),
+                pygame.image.load("pacman/images/pacman/pacman_dead_10.png"),
+            ],
         }
         self.x = 64
         self.y = 64
         self.image_number = 1
+        self.showed_dead_images = False
         self.timer = pygame.time.get_ticks()
         self.direction = None
 
     def change_points(self):
         self.points += 1
+
+    def restart(self):
+        self.image_number = 1
+        self.direction = None
+        self.is_dead = False
+        self.showed_dead_images = False
+        self.x = 64
+        self.y = 64
 
     def get_rect(self):
         if self.direction != None:
@@ -1059,10 +1090,27 @@ class Pacman:
                 self.images[pygame.K_RIGHT][self.image_number].get_height(),
             )
 
+    def update(self):
+        if self.is_dead:
+            if self.timer + 300 < pygame.time.get_ticks():
+                self.image_number += 1
+                self.timer = pygame.time.get_ticks()
+            if self.image_number == 10:
+                self.showed_dead_images = True
+
+    def set_dead(self):
+        self.lives -= 1
+        self.direction = "dead_images"
+        self.image_number = 0
+        self.is_dead = True
+
     def checked_touched_enemy(self, enemy):
         return self.get_rect().colliderect(enemy.get_rect())
 
     def process_keys(self, keys, points_callbsck_fn, check_touched_wall_fn):
+        if self.is_dead:
+            return
+
         touched_wall = False
         if self.direction == pygame.K_LEFT or keys[pygame.K_LEFT]:
             if (
@@ -1155,10 +1203,11 @@ class Pacman:
                 self.direction = pygame.K_DOWN
 
     def draw(self, screen):
-        point_image = pygame.font.Font(None, 25).render(
-            f"Points: {self.points}", True, (255, 255, 255)
+        info_image = pygame.font.Font(None, 25).render(
+            f"Points: {self.points}, Lives: {self.lives}", True, (255, 255, 255)
         )
-        screen.blit(point_image, (5, 10))
+
+        screen.blit(info_image, (5, 10))
         if self.direction != None:
             screen.blit(
                 self.images[self.direction][self.image_number], (self.x, self.y)
@@ -1170,14 +1219,21 @@ class Pacman:
 pygame.init()
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Pacman")
+
+
+def create_new_enemies():
+    return [
+        Enemy(20 * TILE_SIZE, "blue"),
+        Enemy(25 * TILE_SIZE, "red"),
+        Enemy(15 * TILE_SIZE, "rosa"),
+    ]
+
+
 pacman = Pacman()
-enemies = [
-    Enemy(20 * TILE_SIZE, "blue"),
-    Enemy(25 * TILE_SIZE, "red"),
-    Enemy(15 * TILE_SIZE, "rosa"),
-]
+enemies = create_new_enemies()
 maze = Maze()
 should_enemies_move = True
+is_game_finished = False
 while True:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -1185,20 +1241,43 @@ while True:
             sys.exit()
     screen.fill((0, 0, 0))
 
-    if should_enemies_move:
-        for enemy in enemies:
-            enemy.update(maze.check_is_wall)
+    if pacman.lives == 0:
+        is_game_finished = True
 
-    for enemy in enemies:
-        if pacman.checked_touched_enemy(enemy) and should_enemies_move:
-            should_enemies_move = False
+    if not is_game_finished:
 
-    pacman.process_keys(
-        pygame.key.get_pressed(), maze.on_pacman_changed_cell, maze.check_is_wall
-    )
+        if should_enemies_move:
+            for enemy in enemies:
+                enemy.update(maze.check_is_wall)
+
+            for enemy in enemies:
+                if pacman.checked_touched_enemy(enemy) and should_enemies_move:
+                    pacman.set_dead()
+                    should_enemies_move = False
+
+        pacman.update()
+
+        if pacman.showed_dead_images:
+            should_enemies_move = True
+            pacman.restart()
+            enemies = create_new_enemies()
+
+        pacman.process_keys(
+            pygame.key.get_pressed(),
+            maze.on_pacman_changed_cell,
+            maze.check_is_wall,
+        )
     for enemy in enemies:
         enemy.draw(screen)
     maze.draw(screen)
     pacman.draw(screen)
-
+    if is_game_finished and not maze.is_empty():
+        game_over_image = pygame.font.Font(None, 50).render(
+            f"Game over", True, (144, 238, 144)
+        )
+        screen.blit(game_over_image, (SCREEN_WIDTH // 2 - 40, SCREEN_HEIGHT // 2 - 40))
+    if maze.is_empty():
+        is_game_finished = True
+        win_image = pygame.font.Font(None, 50).render(f"You Won", True, (144, 238, 144))
+        screen.blit(win_image, (SCREEN_WIDTH // 2 - 40, SCREEN_HEIGHT // 2 - 40))
     pygame.display.flip()
