@@ -56,33 +56,39 @@ class Enemy:
                 self.image_number = 0
             self.timer = pygame.time.get_ticks()
 
-    def get_possible_directions(self, has_wall, direction_to_check):
+    def get_possible_directions(self, has_wall, direction_to_check, should_duplicate):
         directions = []
         if not has_wall:
-            if self.direction == direction_to_check:
-                directions.append(direction_to_check)
-                directions.append(direction_to_check)
             directions.append(direction_to_check)
+            if should_duplicate:
+                directions.append(direction_to_check)
+                directions.append(direction_to_check)
+                directions.append(direction_to_check)
+                directions.append(direction_to_check)
         return directions
 
-    def update(self, fn):
+    def update(self, fn, x, y):
         if self.x % TILE_SIZE == 0 and self.y % TILE_SIZE == 0:
             directions = []
             directions += self.get_possible_directions(
                 fn(int(self.y // TILE_SIZE), int(self.x // TILE_SIZE - 1)),
                 pygame.K_LEFT,
+                self.x > x,
             )
             directions += self.get_possible_directions(
                 fn(int(self.y // TILE_SIZE), int(self.x // TILE_SIZE + 1)),
                 pygame.K_RIGHT,
+                self.x < x,
             )
             directions += self.get_possible_directions(
                 fn(int(self.y // TILE_SIZE + 1), int(self.x // TILE_SIZE)),
                 pygame.K_DOWN,
+                self.y < y,
             )
             directions += self.get_possible_directions(
                 fn(int(self.y // TILE_SIZE - 1), int(self.x // TILE_SIZE)),
                 pygame.K_UP,
+                self.y > y,
             )
             self.direction = random.choice(directions)
         if self.direction == pygame.K_RIGHT:
@@ -1062,8 +1068,13 @@ class Pacman:
         self.showed_dead_images = False
         self.timer = pygame.time.get_ticks()
         self.direction = None
+        self.points_sound = pygame.mixer.Sound("pacman/point_sound.wav")
+        self.lifes_sound = pygame.mixer.Sound(
+            "pacman/dragon-studio-notification-sound-effect-372475.mp3"
+        )
 
     def change_points(self):
+        self.points_sound.play()
         self.points += 1
 
     def restart(self):
@@ -1099,6 +1110,7 @@ class Pacman:
                 self.showed_dead_images = True
 
     def set_dead(self):
+        self.lifes_sound.play()
         self.lives -= 1
         self.direction = "dead_images"
         self.image_number = 0
@@ -1214,6 +1226,8 @@ class Pacman:
 
 
 pygame.init()
+
+pygame.mixer.init()
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Pacman")
 
@@ -1245,7 +1259,7 @@ while True:
 
         if should_enemies_move:
             for enemy in enemies:
-                enemy.update(maze.check_is_wall)
+                enemy.update(maze.check_is_wall, pacman.x, pacman.y)
 
             for enemy in enemies:
                 if pacman.checked_touched_enemy(enemy) and should_enemies_move:
