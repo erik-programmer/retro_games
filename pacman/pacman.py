@@ -18,8 +18,10 @@ class Enemy:
     def __init__(self, x, color) -> None:
         self.x = x
         self.y = SCREEN_HEIGHT // 2
-        self.timer = pygame.time.get_ticks()
+        self.image_timer = pygame.time.get_ticks()
+        self.eatable_timer = pygame.time.get_ticks()
         self.image_number = 0
+        self.should_run_away = False
         self.direction = pygame.K_RIGHT
         self.images = {
             pygame.K_DOWN: [
@@ -49,14 +51,14 @@ class Enemy:
         )
 
     def animate(self):
-        if self.timer + 300 < pygame.time.get_ticks():
+        if self.image_timer + 300 < pygame.time.get_ticks():
             if self.image_number == 0:
                 self.image_number = 1
             else:
                 self.image_number = 0
             self.timer = pygame.time.get_ticks()
 
-    def get_possible_directions(self, has_wall, direction_to_check, should_duplicate):
+    def duplicate_direction(self, direction_to_check, has_wall, should_duplicate):
         directions = []
         if not has_wall:
             directions.append(direction_to_check)
@@ -66,6 +68,16 @@ class Enemy:
                 directions.append(direction_to_check)
                 directions.append(direction_to_check)
         return directions
+
+    def get_possible_directions(self, has_wall, direction_to_check, should_duplicate):
+        if self.should_run_away:
+            return self.duplicate_direction(
+                direction_to_check, has_wall, not should_duplicate
+            )
+        else:
+            return self.duplicate_direction(
+                direction_to_check, has_wall, should_duplicate
+            )
 
     def update(self, fn, x, y):
         if self.x % TILE_SIZE == 0 and self.y % TILE_SIZE == 0:
@@ -103,6 +115,15 @@ class Enemy:
         elif self.direction == pygame.K_UP:
             self.y -= 0.5
             self.animate()
+        if (
+            self.eatable_timer + 30000 < pygame.time.get_ticks()
+            and self.should_run_away
+        ):
+            self.should_run_away = False
+
+    def run_away(self):
+        self.should_run_away = True
+        self.eatable_timer = pygame.time.get_ticks()
 
     def draw(self, screen):
         screen.blit(self.images[self.direction][self.image_number], (self.x, self.y))
@@ -961,6 +982,9 @@ class Maze:
             self.cells[row][column] = MazeCellType.EMPTY
             fn()
 
+    def set_cell_empty(self, row, column):
+        self.cells[row][column] = MazeCellType.EMPTY
+
     def check_is_wall(self, row, culuomn):
         return self.cells[row][culuomn] == MazeCellType.WALL
 
@@ -970,6 +994,9 @@ class Maze:
                 if c == MazeCellType.POINT:
                     return False
         return True
+
+    def check_is_fruit(self, row, culuomn):
+        return self.cells[row][culuomn] == MazeCellType.FRUIT
 
     def draw(self, screen):
         for ic, row in enumerate(self.cells):
@@ -1108,6 +1135,9 @@ class Pacman:
                 self.timer = pygame.time.get_ticks()
             if self.image_number == 10:
                 self.showed_dead_images = True
+
+    def fruit_eaten(self, is_fruit_fn):
+        return is_fruit_fn(int(self.y // TILE_SIZE), int(self.x // TILE_SIZE))
 
     def set_dead(self):
         self.lifes_sound.play()
@@ -1280,6 +1310,12 @@ while True:
         )
     for enemy in enemies:
         enemy.draw(screen)
+
+    if pacman.fruit_eaten(maze.check_is_fruit):
+        maze.set_cell_empty(int(pacman.y // 32), int(pacman.x // 32))
+        for e in enemies:
+            e.run_away()
+
     maze.draw(screen)
     pacman.draw(screen)
     if is_game_finished and not maze.is_empty():
